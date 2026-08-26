@@ -10,3 +10,9 @@ data/processed/*
 models/*
 !models/.gitkeep
 .env
+
+# --- Exclusión de Datos Pesados (DVC) ---
+data/raw/*
+!data/raw/.gitkeep
+!data/raw/*.dvc
+!data/raw/.gitignore
