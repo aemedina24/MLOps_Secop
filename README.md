@@ -151,7 +151,7 @@ MLOps_Secop/
 ---
 ## 💻 Guía de Inicio Rápido
 1. Clonar el repositorio
-git clone https://github.com/tu-usuario/MLOps_Secop.git
+git clone https://github.com/aemedina24/MLOps_Secop.git
 cd MLOps_Secop
 2. Sincronizar el entorno
 uv sync
@@ -172,7 +172,7 @@ Ejecuta la suite de pruebas automatizadas.
 make setup
 
 Configura el entorno inicial del proyecto.
-
-🎯 Objetivo del Proyecto
+---
+## 🎯 Objetivo del Proyecto
 
 El objetivo de MLOps_Secop es construir un sistema reproducible y mantenible para desarrollar soluciones de Machine Learning utilizando datos de contratación pública del SECOP.
