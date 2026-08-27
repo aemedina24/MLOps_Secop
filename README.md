@@ -157,7 +157,9 @@ cd MLOps_Secop
 uv sync
 3. Activar los hooks de pre-commit
 uv run pre-commit install
-🔧 Comandos Principales
+
+---
+## 🔧 Comandos Principales
 
 El proyecto utiliza un Makefile para simplificar las tareas frecuentes.
 
