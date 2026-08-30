@@ -82,16 +82,20 @@ MLOps_Secop/
 ---
 ## 🗺️ Hoja de Ruta del Proyecto
 
-
 ### ✅ Fase 1 — Cimientos y Calidad
 
-- [x] Configuración del proyecto con `uv`
-- [x] Configuración de `pyproject.toml`
-- [x] Control de dependencias mediante `uv.lock`
-- [x] Configuración de `Ruff`
-- [x] Configuración de `pytest`
-- [x] Configuración de `pre-commit`
-- [x] Creación del `Makefile`
+| Componente | Estado | Detalle |
+|---|---|---|
+| Git + GitHub | ✅ | `main` protegida, PRs obligatorios |
+| uv + pyproject.toml + uv.lock | ✅ | Entorno reproducible |
+| Dependencias dev separadas | ✅ | `[dependency-groups] dev` (pytest, ruff, pre-commit) |
+| Ruff configurado | ✅ | `[tool.ruff]` — reglas E, F, I, UP, line-length 88 |
+| pytest configurado + tests reales | ✅ | `[tool.pytest.ini_options]` + `tests/test_mlops_secop.py` |
+| pre-commit activo | ✅ | Verificado en cada commit |
+| Estructura `src/` | ✅ | Código productivo separado de notebooks |
+
+**Para contribuir al proyecto, ver [`CONTRIBUTING.md`](./CONTRIBUTING.md)**
+(flujo de Git, convención de commits, troubleshooting).
 
 ### 📦 Fase 2 — Control de Versiones y Datos
 
