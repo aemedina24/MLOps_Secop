@@ -893,20 +893,28 @@ source = { editable = "." }
 dependencies = [
     { name = "dvc" },
     { name = "pandas" },
+    { name = "scikit-learn" },
+]
+
+[package.dev-dependencies]
+dev = [
     { name = "pre-commit" },
     { name = "pytest" },
     { name = "ruff" },
-    { name = "scikit-learn" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "dvc", specifier = ">=3.67.1" },
     { name = "pandas", specifier = ">=3.0.5" },
+    { name = "scikit-learn", specifier = ">=1.9.0" },
+]
+
+[package.metadata.requires-dev]
+dev = [
     { name = "pre-commit", specifier = ">=4.6.2" },
     { name = "pytest", specifier = ">=9.1.1" },
     { name = "ruff", specifier = ">=0.16.4" },
-    { name = "scikit-learn", specifier = ">=1.9.0" },
 ]
 
 [[package]]
