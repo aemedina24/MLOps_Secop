@@ -12,6 +12,7 @@ no parte de la suite de pytest.
 from datetime import UTC, datetime, timedelta
 
 import pytest
+
 from mlops_secop.data import ingest_secop as m
 
 

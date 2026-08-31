@@ -4,6 +4,7 @@ Tests de la capa de persistencia RAW de la ingesta de SECOP II.
 
 import pyarrow as pa
 import pyarrow.parquet as pq
+
 from mlops_secop.data.ingest_secop import COLUMNS, _save_page_as_parquet
 
 
