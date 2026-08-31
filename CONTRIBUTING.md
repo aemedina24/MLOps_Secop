@@ -152,6 +152,14 @@ parado en esa rama — haz `git checkout main` primero.
 crea un commit distinto al original, así que Git no lo reconoce por hash
 exacto. Igual te deja borrar la rama.
 
+⚠️ Si necesitas abandonar una rama sin fusionar (por ejemplo, un enfoque que
+decidiste no continuar), `git branch -d` lo va a rechazar. Confirma primero
+con `git log <rama> --oneline -5` que efectivamente no necesitas esos
+commits, y solo entonces usa `git branch -D` (mayúscula, fuerza el borrado).
+Revisa también `git stash list`: si esa rama tenía cambios guardados en
+`stash`, decide explícitamente si los descartas (`git stash drop`) antes de
+eliminar la rama, para no dejar trabajo huérfano sin darte cuenta.
+
 ---
 
 ## 5. Convención de Commits (Conventional Commits)
@@ -203,8 +211,117 @@ Síntoma: una rama ya borrada en GitHub sigue apareciendo localmente.
 Causa: la información de ramas remotas queda en caché local.
 Solución: `git fetch --prune`.
 
+**🟡 `Copy-Item -Recurse` no preserva la jerarquía de carpetas**
+Síntoma: al copiar varios archivos nuevos de golpe (por ejemplo, un módulo
+completo con subcarpetas), todo termina aplanado en la carpeta destino en
+vez de respetar las rutas relativas del origen.
+Causa: comportamiento poco predecible de `Copy-Item -Recurse` en PowerShell
+cuando el destino ya tiene carpetas con nombres iguales a las del origen.
+Cómo detectarlo: revisa el árbol de archivos en el explorador (o
+`Get-ChildItem -Recurse`) antes de hacer `git add`, no después.
+Solución: mover manualmente cada archivo a su ruta correcta con
+`Move-Item`, o usar `robocopy "<origen>" "<destino>" /E` en vez de
+`Copy-Item` para este tipo de copias.
+
+**🔴 `__init__.py` sobrescrito al recrearlo con `New-Item`**
+Síntoma: `git diff` muestra que un archivo `__init__.py` existente perdió
+contenido (por ejemplo, una función de plantilla generada por `uv init`).
+Causa: se asumió que el archivo no existía y se recreó vacío con
+`New-Item -Force`, sin revisar primero si ya tenía contenido.
+Cómo detectarlo: antes de recrear cualquier archivo con `-Force`, revisa
+`git status` — si aparece como **modified** en vez de **untracked**, ya
+existía y tenía contenido.
+Solución: `git checkout -- <archivo>` para restaurar la versión original.
+
+**🔴 `ModuleNotFoundError` después de mover archivos entre carpetas**
+Síntoma: `pytest` falla con `No module named 'pyarrow'` (o cualquier otra
+librería) justo después de reorganizar la estructura de archivos.
+Causa: no es un problema de rutas — la dependencia nunca se agregó a
+`pyproject.toml`, así que `uv sync` nunca la instaló.
+Cómo detectarlo: `Get-Content .\pyproject.toml | Select-String "<paquete>"`
+— si no aparece, confirma la causa.
+Solución: `uv add <paquete>` (nunca `pip install` suelto, porque no queda
+declarado ni fijado en `uv.lock` para el resto del equipo).
+
+**🟡 `.env` vacío o con valores por defecto**
+Síntoma: la ingesta falla con un error de autenticación, o un script se
+comporta como si las variables de entorno no existieran.
+Causa: se editó `.env` con `notepad .env` sin haberlo creado antes a partir
+de `.env.example` — Notepad permite editar un archivo que no existe, pero
+no copia nada de la plantilla.
+Cómo detectarlo: `Test-Path .env` antes de editar; si es `False`, cópialo
+primero.
+Solución: `Copy-Item .env.example .env` y luego edítalo con tus valores
+reales.
+
+**🟢 `pre-commit` modifica archivos y aborta el primer intento de commit**
+Síntoma: `git commit` falla con `files were modified by this hook` (Ruff o
+Ruff-format corrigieron algo automáticamente).
+Esto NO es un error — es el comportamiento esperado de `pre-commit`: nunca
+comitea código que el propio linter acaba de cambiar sin que lo veas.
+Solución: revisa `git diff` para entender qué se corrigió, vuelve a hacer
+`git add` de los archivos corregidos, y repite `git commit`. La segunda vez
+debería pasar sin modificar nada más.
+
 ---
 
-## 7. Estructura del proyecto
+## 7. Módulo de ingesta: SECOP Integrado
+
+Implementado en la rama `feature/secop-ingestion`. Cubre la capa **Data**
+de la arquitectura del proyecto (ver `README.md`).
+
+### Qué hace
+
+Descarga contratos desde la API de Datos Abiertos Colombia (dataset
+`SECOP Integrado`, ID `rpmr-utcd`) y los guarda como Parquet en
+`data/raw/secop_ii/`, sin transformar los valores originales.
+
+### Archivos
+
+| Archivo | Responsabilidad |
+|---|---|
+| `src/mlops_secop/data/socrata_client.py` | Cliente genérico de paginación para APIs Socrata (reutilizable para otros datasets) |
+| `src/mlops_secop/data/ingest_secop.py` | Lógica específica de SECOP: columnas, rango de fechas, checkpoint |
+| `tests/test_ingest_secop.py` | Tests de la lógica de fechas/checkpoint (sin llamadas a la API real) |
+
+### Configuración requerida
+
+```powershell
+Copy-Item .env.example .env
+notepad .env    # completa SOCRATA_APP_TOKEN con tu token real
+```
+
+Variables relevantes (ver `.env.example` para la lista completa):
+
+```
+SOCRATA_APP_TOKEN=<tu token de Socrata>
+SECOP_DATASET_ID=rpmr-utcd
+```
+
+### Ejecución
+
+```powershell
+uv run python -m mlops_secop.data.ingest_secop
+```
+
+### Validación
+
+```powershell
+uv run pytest tests\test_ingest_secop.py -v
+```
+
+Debe mostrar `5 passed`. Estos tests no requieren `SOCRATA_APP_TOKEN` ni
+conexión a internet — solo validan la lógica de fechas y la lista de
+columnas.
+
+### Extracción incremental
+
+La primera ejecución trae contratos desde `2022-01-01` hasta la fecha
+actual. Ejecuciones posteriores usan el checkpoint guardado en
+`data/raw/_checkpoints/last_extraction.json` para traer solo lo nuevo.
+
+---
+
+## 8. Estructura del proyecto
 
 Ver `README.md` para la arquitectura completa y el roadmap por fases.
