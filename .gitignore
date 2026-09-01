@@ -3,16 +3,15 @@ __pycache__/
 *.pyc
 .pytest_cache/
 .ruff_cache/
+.env
+
+# Datos (gestionados por DVC, no por Git)
 data/raw/*
 data/processed/*
 !data/raw/.gitkeep
 !data/processed/.gitkeep
-models/*
-!models/.gitkeep
-.env
-
-# --- Exclusión de Datos Pesados (DVC) ---
-data/raw/*
-!data/raw/.gitkeep
 !data/raw/*.dvc
 !data/raw/.gitignore
+
+models/*
+!models/.gitkeep
