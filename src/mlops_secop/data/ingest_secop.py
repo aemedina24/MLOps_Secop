@@ -16,7 +16,7 @@ Variables de entorno requeridas:
 
 Variables de entorno opcionales:
 - SECOP_API_BASE_URL     (default: https://www.datos.gov.co/resource)
-- SECOP_DATASET_ID       (default: jbjy-vk9h)
+- SECOP_DATASET_ID       (default: rpmr-utcd)
 - SECOP_PAGE_SIZE        (default: 5000)
 - SECOP_RAW_DIR          (default: data/raw/secop_ii)
 - SECOP_CHECKPOINT_PATH  (default: data/raw/_checkpoints/last_extraction.json)
