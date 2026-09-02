@@ -1,6 +1,6 @@
 """
 Ingesta RAW de contratos SECOP II desde la API de Datos Abiertos Colombia
-(portal Socrata, dataset jbjy-vk9h).
+(portal Socrata, dataset rpmr-utcd).
 
 Este script:
 1. Calcula el rango temporal (incremental si hay checkpoint, o desde
@@ -35,8 +35,11 @@ from pathlib import Path
 
 import pyarrow as pa
 import pyarrow.parquet as pq
+from dotenv import load_dotenv
 
 from mlops_secop.data.socrata_client import SocrataClient, SocrataClientConfig
+
+load_dotenv()
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
