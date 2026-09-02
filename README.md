@@ -1,6 +1,4 @@
-
 # 🚀 MLOps_Secop: Pipeline End-to-End de Machine Learning
-
 
 ## 📌 Arquitectura del Sistema
 
@@ -38,7 +36,6 @@
 
 ---
 ## 📁 Estructura del Proyecto
-
 
 ```text
 El código productivo vive exclusivamente en src/.
@@ -86,7 +83,7 @@ MLOps_Secop/
 
 | Componente | Estado | Detalle |
 |---|---|---|
-| Git + GitHub | ✅ | `main` protegida, PRs obligatorios |
+| Git + GitHub | 🟡 | Flujo de PRs en uso; protección formal de rama `main` pendiente de activar en GitHub Settings |
 | uv + pyproject.toml + uv.lock | ✅ | Entorno reproducible |
 | Dependencias dev separadas | ✅ | `[dependency-groups] dev` (pytest, ruff, pre-commit) |
 | Ruff configurado | ✅ | `[tool.ruff]` — reglas E, F, I, UP, line-length 88 |
@@ -99,9 +96,9 @@ MLOps_Secop/
 
 ### 📦 Fase 2 — Control de Versiones y Datos
 
-- [ ] Configuración del repositorio en `GitHub`
-- [ ] Configuración de `DVC`
-- [ ] Versionamiento de datasets
+- [x] Configuración del repositorio en `GitHub`
+- [x] Configuración de `DVC`
+- [ ] Versionamiento de datasets (pendiente: ejecutar ingesta real + `dvc add`)
 - [ ] Organización de datos en `raw/` y `processed/`
 - [ ] Creación del pipeline de datos
 
@@ -126,12 +123,17 @@ MLOps_Secop/
 
 ### 🔄 Fase 5 — CI/CD
 
-- [ ] Configuración de GitHub Actions
-- [ ] Automatización de pruebas
-- [ ] Automatización de Ruff
-- [ ] Validación automática de Pull Requests
+- [x] Configuración de GitHub Actions
+- [x] Automatización de pruebas
+- [x] Automatización de Ruff
+- [ ] Validación automática de Pull Requests (pendiente: branch protection)
 - [ ] Construcción automática de imagen Docker
 - [ ] Pipeline de despliegue
+
+> **Nota:** la configuración base de CI/CD (GitHub Actions con `uv sync`
+> + `ruff` + `pytest`) se adelantó desde la Fase 1, antes de completar
+> Fase 2, porque se detectó que ningún Pull Request tenía validación
+> automática. Ver `.github/workflows/ci.yml`.
 
 ### 📊 Fase 6 — Monitoreo y Gobernanza
 
@@ -154,31 +156,69 @@ MLOps_Secop/
 
 ---
 ## 💻 Guía de Inicio Rápido
+
 1. Clonar el repositorio
+```powershell
 git clone https://github.com/aemedina24/MLOps_Secop.git
 cd MLOps_Secop
+```
+
 2. Sincronizar el entorno
+```powershell
 uv sync
+```
+
 3. Activar los hooks de pre-commit
+```powershell
 uv run pre-commit install
+```
+
+4. Configurar tu token de Socrata (obligatorio para la ingesta)
+
+El pipeline de ingesta (`src/mlops_secop/data/ingest_secop.py`) requiere
+un `SOCRATA_APP_TOKEN` propio de cada persona - **no se comparte ni se
+sube a Git**, cada quien debe generar el suyo:
+
+   a. Copia la plantilla de variables de entorno:
+   ```powershell
+   copy .env.example .env
+   ```
+   b. Crea una cuenta gratuita en [datos.gov.co](https://www.datos.gov.co/)
+
+   c. Ve a tu perfil -> **Mis Aplicaciones** -> **Crear Nueva Aplicacion**
+
+   d. Copia el **App Token** generado (no el token secreto) y pegalo en tu `.env`:
+   ```
+   SOCRATA_APP_TOKEN=tu_token_aqui
+   ```
+   e. El archivo `.env` nunca se versiona (ya esta en `.gitignore`) - si
+   clonas el proyecto en otra maquina, repite este paso ahi tambien.
+
+> **Nota (Windows):** `make` no viene instalado por defecto. Instalalo
+> con [Chocolatey](https://chocolatey.org/install) (`choco install make -y`,
+> requiere PowerShell como Administrador) o usa los comandos equivalentes
+> directamente: `uv run ruff check . --fix && uv run ruff format .` (para
+> `make quality`) y `uv run pytest` (para `make test`).
 
 ---
 ## 🔧 Comandos Principales
 
 El proyecto utiliza un Makefile para simplificar las tareas frecuentes.
 
-make quality
+`make quality`
 
 Ejecuta las herramientas de calidad de código.
 
-make test
+`make test`
 
 Ejecuta la suite de pruebas automatizadas.
 
-make setup
+`make setup`
 
 Configura el entorno inicial del proyecto.
+
 ---
 ## 🎯 Objetivo del Proyecto
 
 El objetivo de MLOps_Secop es construir un sistema reproducible y mantenible para desarrollar soluciones de Machine Learning utilizando datos de contratación pública del SECOP.
+
