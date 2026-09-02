@@ -1,0 +1,6 @@
+outs:
+- md5: b718f105da469e2fe072e787f03671f9.dir
+  size: 1896394443
+  nfiles: 1692
+  hash: md5
+  path: secop_ii
