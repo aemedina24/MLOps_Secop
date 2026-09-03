@@ -148,25 +148,30 @@ def _write_checkpoint(extraction_end: datetime) -> None:
     )
 
 
+OVERLAP_DAYS = 5  # nueva constante, cerca de CHUNK_DAYS
+
+
 def _resolve_date_range() -> tuple[datetime, datetime]:
     """
     Resuelve el rango [desde, hasta) de la extracción actual.
 
-    - hasta = inicio del día SIGUIENTE al momento de ejecución. Se calcula
-      en tiempo de ejecución con datetime.now(); nunca es un valor fijo
-      en el código, tal como exige el requisito.
-    - desde = checkpoint de la última extracción exitosa si existe,
-      o 2022-01-01 en la primera ejecución.
+    - hasta = inicio del día SIGUIENTE al momento de ejecución.
+    - desde = checkpoint de la última extracción exitosa, retrocedido
+      OVERLAP_DAYS para recapturar contratos que la entidad pública
+      registró en SECOP con retraso respecto a su fecha real de firma
+      (late-arriving data). Los duplicados que esto genera se resuelven
+      en la capa de processing (_deduplicate).
     """
     now = datetime.now(UTC)
     hasta = (now + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
 
     checkpoint = _read_checkpoint()
-    desde = checkpoint if checkpoint is not None else DEFAULT_START_DATE
+    if checkpoint is not None:
+        desde = checkpoint - timedelta(days=OVERLAP_DAYS)
+    else:
+        desde = DEFAULT_START_DATE
 
     if desde < DEFAULT_START_DATE:
-        # Protección explícita: sin importar lo que diga un checkpoint
-        # corrupto o manual, nunca extraemos antes de 2022-01-01.
         desde = DEFAULT_START_DATE
 
     return desde, hasta

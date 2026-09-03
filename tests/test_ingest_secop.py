@@ -38,17 +38,36 @@ def test_hasta_is_start_of_tomorrow():
     assert hasta == expected
 
 
-def test_incremental_run_starts_at_last_checkpoint():
+def test_incremental_run_starts_at_checkpoint_minus_overlap():
+    """
+    El rango incremental no arranca exactamente en el checkpoint: retrocede
+    OVERLAP_DAYS para recapturar contratos que SECOP registró con retraso
+    respecto a su fecha real de firma (late-arriving data). Los duplicados
+    que esto genera se resuelven en la capa de processing (_deduplicate).
+    """
     checkpoint_dt = datetime(2024, 6, 1, tzinfo=UTC)
     m._write_checkpoint(checkpoint_dt)
 
     desde, _hasta = m._resolve_date_range()
-    assert desde == checkpoint_dt
+    assert desde == checkpoint_dt - timedelta(days=m.OVERLAP_DAYS)
 
 
 def test_checkpoint_never_goes_before_default_start():
     corrupted_checkpoint = datetime(2019, 1, 1, tzinfo=UTC)
     m._write_checkpoint(corrupted_checkpoint)
+
+    desde, _hasta = m._resolve_date_range()
+    assert desde == m.DEFAULT_START_DATE
+
+
+def test_overlap_cannot_push_desde_before_default_start():
+    """
+    Si el checkpoint está cerca de DEFAULT_START_DATE, restarle OVERLAP_DAYS
+    podría llevar desde antes del inicio oficial del dataset. La protección
+    de DEFAULT_START_DATE debe seguir aplicando incluso con el solapamiento.
+    """
+    near_start = m.DEFAULT_START_DATE + timedelta(days=2)
+    m._write_checkpoint(near_start)
 
     desde, _hasta = m._resolve_date_range()
     assert desde == m.DEFAULT_START_DATE
