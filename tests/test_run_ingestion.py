@@ -1,11 +1,12 @@
 """
 Tests de orquestacion de run_ingestion.
-
 Mockea SocrataClient.paginate para no depender de red ni del token real.
 Los pasos ya cubiertos por separado (_resolve_date_range en
 test_ingest_secop.py, _save_page_as_parquet en test_ingest_parquet.py)
 no se vuelven a probar aqui en detalle.
 """
+
+from datetime import UTC, datetime
 
 from mlops_secop.data import ingest_secop as m
 
@@ -26,8 +27,13 @@ def test_run_ingestion_counts_rows_and_pages_from_mocked_pages(tmp_path, monkeyp
     monkeypatch.setenv("SECOP_CHECKPOINT_PATH", str(tmp_path / "checkpoint.json"))
     monkeypatch.setattr(m.SocrataClient, "paginate", _fake_paginate_two_pages)
 
-    summary = m.run_ingestion()
+    # Forzamos que el rango de fechas produzca UNA sola ventana de chunking,
+    # para que el mock se llame exactamente una vez (antes del chunking,
+    # esto no era necesario porque paginate() se llamaba una sola vez
+    # para todo el rango; ahora se llama una vez por ventana de CHUNK_DAYS).
+    monkeypatch.setattr(m, "DEFAULT_START_DATE", datetime(2026, 8, 20, tzinfo=UTC))
 
+    summary = m.run_ingestion()
     assert summary["total_rows"] == 3
     assert summary["total_pages"] == 2
 

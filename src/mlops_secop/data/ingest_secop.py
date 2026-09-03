@@ -1,11 +1,17 @@
 """
 Ingesta RAW de contratos SECOP II desde la API de Datos Abiertos Colombia
-(portal Socrata, dataset rpmr-utcd).
+(portal Socrata, dataset rpmr-utcd, "SECOP Integrado").
 
 Este script:
 1. Calcula el rango temporal (incremental si hay checkpoint, o desde
    2022-01-01 en la primera ejecución).
-2. Consulta la API paginando resultados, sin cargar todo en memoria.
+2. Divide ese rango en ventanas de tiempo pequeñas (CHUNK_DAYS) y pagina
+   la API dentro de cada ventana por separado. Esto evita que el $offset
+   crezca sin límite en datasets grandes: Socrata recorre internamente
+   todas las filas anteriores al offset pedido, así que offsets altos
+   (millones de filas) empiezan a superar cualquier timeout razonable.
+   Particionar por fecha mantiene el offset siempre acotado dentro de
+   cada ventana.
 3. Guarda cada página como Parquet en `data/raw/` SIN transformar los
    valores originales.
 4. Actualiza un checkpoint con la fecha de la última extracción exitosa,
@@ -39,6 +45,10 @@ from dotenv import load_dotenv
 
 from mlops_secop.data.socrata_client import SocrataClient, SocrataClientConfig
 
+# Carga las variables de .env hacia el entorno del proceso, si el archivo
+# existe. En producción (CI/CD, Docker) las variables normalmente ya vienen
+# inyectadas por la plataforma, así que esto es un no-op inofensivo ahí —
+# solo tiene efecto real en desarrollo local.
 load_dotenv()
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -75,6 +85,13 @@ COLUMNS: list[str] = [
 
 DATE_COLUMN = "fecha_de_firma_del_contrato"
 DEFAULT_START_DATE = datetime(2022, 1, 1, tzinfo=UTC)
+
+# Tamaño de cada ventana de fecha para acotar el $offset. 15 días es un
+# punto de partida razonable para un dataset de millones de filas
+# distribuidas en varios años; si en el futuro alguna ventana sigue
+# teniendo timeouts, se puede bajar este valor sin tocar el resto del
+# diseño.
+CHUNK_DAYS = 15
 
 
 def _load_config() -> SocrataClientConfig:
@@ -160,6 +177,27 @@ def _soda_datetime(dt: datetime) -> str:
     return dt.strftime("%Y-%m-%dT%H:%M:%S")
 
 
+def _iter_date_chunks(
+    desde: datetime, hasta: datetime, chunk_days: int = CHUNK_DAYS
+) -> list[tuple[datetime, datetime]]:
+    """
+    Divide el rango [desde, hasta) en ventanas consecutivas de tamaño fijo.
+
+    Por qué existe esta función: sin ella, una sola consulta cubriría todo
+    el rango y el $offset crecería sin límite a medida que se avanza en
+    la paginación (ver docstring del módulo). Al particionar por fecha,
+    cada ventana empieza su propia paginación en offset=0.
+    """
+    chunks: list[tuple[datetime, datetime]] = []
+    current = desde
+    delta = timedelta(days=chunk_days)
+    while current < hasta:
+        chunk_end = min(current + delta, hasta)
+        chunks.append((current, chunk_end))
+        current = chunk_end
+    return chunks
+
+
 # --------------------------------------------------------------------------
 # 3. Persistencia RAW (Parquet, sin transformar valores)
 # --------------------------------------------------------------------------
@@ -172,15 +210,11 @@ def _save_page_as_parquet(page: list[dict], run_dir: Path, page_number: int) -> 
     Todas las columnas se conservan como string, que es como llegan desde
     la API SODA (JSON). Convertir tipos (fechas a datetime, valor_contrato
     a numérico, etc.) es responsabilidad de una capa de `processing`
-    posterior, no de la capa RAW: si RAW ya transforma, perdemos la
-    trazabilidad de "qué devolvió realmente la API".
+    posterior, no de la capa RAW.
     """
     run_dir.mkdir(parents=True, exist_ok=True)
     file_path = run_dir / f"part-{page_number:05d}.parquet"
 
-    # Se garantiza que las 22 columnas estén presentes en cada fila,
-    # incluso si un registro específico no trae alguna (Socrata omite
-    # claves con valor NULL en la respuesta JSON).
     normalized_rows = [{col: row.get(col) for col in COLUMNS} for row in page]
 
     table = pa.Table.from_pylist(
@@ -201,12 +235,7 @@ def run_ingestion(page_size: int | None = None) -> dict:
     page_size = page_size or int(os.environ.get("SECOP_PAGE_SIZE", "5000"))
 
     desde, hasta = _resolve_date_range()
-    where_clause = (
-        f"{DATE_COLUMN} >= '{_soda_datetime(desde)}' "
-        f"AND {DATE_COLUMN} < '{_soda_datetime(hasta)}'"
-    )
     logger.info("Rango de extracción: %s -> %s", desde.isoformat(), hasta.isoformat())
-    logger.info("Cláusula WHERE enviada a la API: %s", where_clause)
 
     raw_root = Path(os.environ.get("SECOP_RAW_DIR", "data/raw/secop_ii"))
     run_dir = raw_root / f"ingestion_date={datetime.now(UTC):%Y-%m-%d}"
@@ -216,26 +245,47 @@ def run_ingestion(page_size: int | None = None) -> dict:
     total_rows = 0
     total_pages = 0
     written_files: list[str] = []
+    page_number = 0
 
-    for page_number, page in enumerate(
-        client.paginate(
+    chunks = _iter_date_chunks(desde, hasta)
+    logger.info(
+        "Extracción dividida en %s ventana(s) de %s días para evitar "
+        "offsets grandes en la API",
+        len(chunks),
+        CHUNK_DAYS,
+    )
+
+    for chunk_index, (chunk_desde, chunk_hasta) in enumerate(chunks, start=1):
+        where_clause = (
+            f"{DATE_COLUMN} >= '{_soda_datetime(chunk_desde)}' "
+            f"AND {DATE_COLUMN} < '{_soda_datetime(chunk_hasta)}'"
+        )
+        logger.info(
+            "Ventana %s/%s: %s -> %s",
+            chunk_index,
+            len(chunks),
+            chunk_desde.isoformat(),
+            chunk_hasta.isoformat(),
+        )
+
+        for page in client.paginate(
             select=COLUMNS,
             where=where_clause,
             order_by=f"{DATE_COLUMN} ASC",
             page_size=page_size,
-        ),
-        start=1,
-    ):
-        file_path = _save_page_as_parquet(page, run_dir, page_number)
-        written_files.append(str(file_path))
-        total_rows += len(page)
-        total_pages += 1
+        ):
+            page_number += 1
+            file_path = _save_page_as_parquet(page, run_dir, page_number)
+            written_files.append(str(file_path))
+            total_rows += len(page)
+            total_pages += 1
 
     if total_rows > 0:
-        # El checkpoint solo avanza si el bucle completo terminó sin
+        # El checkpoint solo avanza si TODAS las ventanas terminaron sin
         # excepciones. Si la extracción falla a mitad de camino, el
-        # checkpoint queda intacto y la siguiente corrida vuelve a
-        # intentar el mismo rango: la ingesta es reanudable.
+        # checkpoint queda intacto y la siguiente corrida reintenta desde
+        # el principio: la ingesta es reanudable, aunque no incremental
+        # dentro de una misma corrida fallida.
         _write_checkpoint(hasta)
     else:
         logger.info(

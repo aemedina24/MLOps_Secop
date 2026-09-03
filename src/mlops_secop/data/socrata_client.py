@@ -26,7 +26,7 @@ class SocrataClientConfig:
     base_url: str
     dataset_id: str
     app_token: str
-    timeout_seconds: float = 30.0
+    timeout_seconds: float = 90.0
     max_retries: int = 3
     backoff_factor: float = 1.5
 
