@@ -185,7 +185,13 @@ MLOps_Secop/
    1. Copia la plantilla de variables de entorno:
 
       ```powershell
+      # Windows (PowerShell)
       copy .env.example .env
+      ```
+
+      ```bash
+      # macOS / Linux
+      cp .env.example .env
       ```
 
    2. Crea una cuenta gratuita en [datos.gov.co](https://www.datos.gov.co/).
