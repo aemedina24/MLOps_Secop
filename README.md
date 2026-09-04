@@ -158,41 +158,48 @@ MLOps_Secop/
 ## 💻 Guía de Inicio Rápido
 
 1. Clonar el repositorio
-```powershell
-git clone https://github.com/aemedina24/MLOps_Secop.git
-cd MLOps_Secop
-```
+
+   ```powershell
+   git clone https://github.com/aemedina24/MLOps_Secop.git
+   cd MLOps_Secop
+   ```
 
 2. Sincronizar el entorno
-```powershell
-uv sync
-```
+
+   ```powershell
+   uv sync
+   ```
 
 3. Activar los hooks de pre-commit
-```powershell
-uv run pre-commit install
-```
+
+   ```powershell
+   uv run pre-commit install
+   ```
 
 4. Configurar tu token de Socrata (obligatorio para la ingesta)
 
-El pipeline de ingesta (`src/mlops_secop/data/ingest_secop.py`) requiere
-un `SOCRATA_APP_TOKEN` propio de cada persona - **no se comparte ni se
-sube a Git**, cada quien debe generar el suyo:
+   El pipeline de ingesta (`src/mlops_secop/data/ingest_secop.py`) requiere
+   un `SOCRATA_APP_TOKEN` propio de cada persona — **no se comparte ni se
+   sube a Git**, cada quien debe generar el suyo:
 
-   a. Copia la plantilla de variables de entorno:
-   ```powershell
-   copy .env.example .env
-   ```
-   b. Crea una cuenta gratuita en [datos.gov.co](https://www.datos.gov.co/)
+   1. Copia la plantilla de variables de entorno:
 
-   c. Ve a tu perfil -> **Mis Aplicaciones** -> **Crear Nueva Aplicacion**
+      ```powershell
+      copy .env.example .env
+      ```
 
-   d. Copia el **App Token** generado (no el token secreto) y pegalo en tu `.env`:
-   ```
-   SOCRATA_APP_TOKEN=tu_token_aqui
-   ```
-   e. El archivo `.env` nunca se versiona (ya esta en `.gitignore`) - si
-   clonas el proyecto en otra maquina, repite este paso ahi tambien.
+   2. Crea una cuenta gratuita en [datos.gov.co](https://www.datos.gov.co/).
+
+   3. Ve a tu perfil → **Mis Aplicaciones** → **Crear Nueva Aplicación**.
+
+   4. Copia el **App Token** generado (no el token secreto) y pégalo en tu `.env`:
+
+      ```
+      SOCRATA_APP_TOKEN=tu_token_aqui
+      ```
+
+   5. El archivo `.env` nunca se versiona (ya está en `.gitignore`); si
+      clonas el proyecto en otra máquina, repite este paso ahí también.
 
 > **Nota (Windows):** `make` no viene instalado por defecto. Instalalo
 > con [Chocolatey](https://chocolatey.org/install) (`choco install make -y`,
