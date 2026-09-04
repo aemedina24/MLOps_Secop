@@ -285,18 +285,15 @@ def run_ingestion(page_size: int | None = None) -> dict:
             total_rows += len(page)
             total_pages += 1
 
-    if total_rows > 0:
-        # El checkpoint solo avanza si TODAS las ventanas terminaron sin
-        # excepciones. Si la extracción falla a mitad de camino, el
-        # checkpoint queda intacto y la siguiente corrida reintenta desde
-        # el principio: la ingesta es reanudable, aunque no incremental
-        # dentro de una misma corrida fallida.
-        _write_checkpoint(hasta)
-    else:
-        logger.info(
-            "No se encontraron registros nuevos en el rango solicitado. "
-            "El checkpoint NO se actualiza."
-        )
+        # Checkpoint incremental: si esta ventana terminó sin excepciones
+        # (todas sus páginas se guardaron), confirmamos el progreso hasta
+        # el final de ESTA ventana, no solo al final de toda la corrida.
+        # Así, si la extracción falla en la ventana N+1 (por ejemplo, por
+        # un 503 transitorio de la API), la siguiente corrida retoma desde
+        # el final de la ventana N (menos OVERLAP_DAYS) en lugar de repetir
+        # todo el histórico desde DEFAULT_START_DATE.
+        _write_checkpoint(chunk_hasta)
+        logger.info("Checkpoint actualizado hasta %s", chunk_hasta.isoformat())
 
     summary = {
         "desde": desde.isoformat(),
