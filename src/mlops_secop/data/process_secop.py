@@ -6,8 +6,12 @@ Este script:
 1. Lee todos los archivos Parquet en `data/raw/secop_ii/ingestion_date=*/`,
    ignorando cualquier otra carpeta (como `_checkpoints/`).
 2. Añade la columna `ingestion_date` extraída del nombre de la partición.
-3. Deduplica por `numero_del_contrato`, quedándose con la fila del
-   `ingestion_date` más reciente cuando hay repetidos.
+3. Deduplica por fila completa (todas las columnas salvo `ingestion_date`),
+   quedándose con la fila del `ingestion_date` más reciente cuando hay
+   duplicados exactos. No se usa `numero_del_contrato` como clave: en el
+   dataset SECOP Integrado, un mismo `numero_del_contrato` puede agrupar
+   cientos de ítems/entregas/proveedores distintos bajo un contrato marco
+   (ver detalle empírico en el docstring de `_deduplicate()`).
 4. Guarda el resultado consolidado en `data/processed/secop_ii/contracts.parquet`.
 
 Variables de entorno opcionales:
@@ -28,8 +32,6 @@ import pandas as pd
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
-
-DEDUP_KEY = "numero_del_contrato"
 
 
 def _raw_dir() -> Path:
