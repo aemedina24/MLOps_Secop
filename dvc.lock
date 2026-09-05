@@ -1,0 +1,19 @@
+schema: '2.0'
+stages:
+  process:
+    cmd: python -m mlops_secop.data.process_secop
+    deps:
+    - path: data/raw/secop_ii
+      hash: md5
+      md5: 6b8741c0c716ebd039758ecd8a5e6b63.dir
+      size: 1919027041
+      nfiles: 1718
+    - path: src/mlops_secop/data/process_secop.py
+      hash: md5
+      md5: 4044b4528d39c9a59121cd4dfb42a918
+      size: 6134
+    outs:
+    - path: data/processed/secop_ii/contracts.parquet
+      hash: md5
+      md5: 8c1f5c71ead91bc63d73a9baa352737f
+      size: 2488799225

@@ -1,0 +1,8 @@
+stages:
+  process:
+    cmd: python -m mlops_secop.data.process_secop
+    deps:
+    - data/raw/secop_ii
+    - src/mlops_secop/data/process_secop.py
+    outs:
+    - data/processed/secop_ii/contracts.parquet
