@@ -36,6 +36,7 @@ DEFAULT_ROW = {
     "tipo_documento_proveedor": "NIT",
     "numero_del_contrato": "CTO-001",
     "url_contrato": "https://example.com/CTO-001",
+    "objeto_a_contratar": "Suministro de reactivos de laboratorio",
 }
 
 
@@ -71,14 +72,22 @@ def isolated_paths(tmp_path, monkeypatch):
 
 def test_identifier_columns_preserved(isolated_paths):
     """
-    numero_del_contrato y url_contrato deben llegar intactos al output
-    -- son la única forma de rastrear un contrato real cuando el modelo
-    lo marque como atipico. No son features, son referencia.
+    numero_del_contrato, url_contrato y objeto_a_contratar deben llegar
+    intactos al output -- son la unica forma de rastrear un contrato
+    real y distinguir items distintos bajo el mismo numero de contrato
+    cuando el modelo lo marque como atipico. No son features, son
+    referencia.
     """
     contracts_path, features_path = isolated_paths
     _write_contracts_parquet(
         contracts_path,
-        [_row(numero_del_contrato="CTO-999", url_contrato="https://x.co/999")],
+        [
+            _row(
+                numero_del_contrato="CTO-999",
+                url_contrato="https://x.co/999",
+                objeto_a_contratar="Compra de equipos medicos",
+            )
+        ],
     )
 
     bf.build_features()
@@ -86,6 +95,41 @@ def test_identifier_columns_preserved(isolated_paths):
     result = pd.read_parquet(features_path)
     assert result["numero_del_contrato"].iloc[0] == "CTO-999"
     assert result["url_contrato"].iloc[0] == "https://x.co/999"
+    assert result["objeto_a_contratar"].iloc[0] == "Compra de equipos medicos"
+
+
+def test_distinguishes_different_items_under_same_contract_number(isolated_paths):
+    """
+    Reproduce el caso real encontrado en produccion: dos items
+    genuinamente distintos bajo el mismo numero_del_contrato (mismo
+    proveedor, misma categoria, mismo valor) que solo se diferencian
+    por objeto_a_contratar. Sin esta columna en el output, un auditor
+    veria dos filas identicas y las confundiria con un duplicado del
+    pipeline -- con ella, puede distinguir que son dos entregables
+    reales distintos del mismo contrato marco.
+    """
+    contracts_path, features_path = isolated_paths
+    rows = [
+        _row(
+            numero_del_contrato="22-4-13100726",
+            objeto_a_contratar="APOYO TECNOLOGICO de equipo de biologia molecular",
+        ),
+        _row(
+            numero_del_contrato="22-4-13100726",
+            objeto_a_contratar="SUMINISTRO DE INSUMOS para laboratorio clinico",
+        ),
+    ]
+    _write_contracts_parquet(contracts_path, rows)
+
+    bf.build_features()
+
+    result = pd.read_parquet(features_path)
+    assert len(result) == 2
+    objetos = set(result["objeto_a_contratar"])
+    assert objetos == {
+        "APOYO TECNOLOGICO de equipo de biologia molecular",
+        "SUMINISTRO DE INSUMOS para laboratorio clinico",
+    }
 
 
 def test_filters_out_reversed_dates(isolated_paths):
