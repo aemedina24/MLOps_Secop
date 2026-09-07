@@ -15,3 +15,4 @@ data/processed/*
 
 models/*
 !models/.gitkeep
+!models/*.dvc

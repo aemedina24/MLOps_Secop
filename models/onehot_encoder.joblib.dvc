@@ -1,0 +1,5 @@
+outs:
+- md5: 4145b32bf4a6e1eed002c05b8bd3d2e9
+  size: 4606
+  hash: md5
+  path: onehot_encoder.joblib
