@@ -1,7 +1,7 @@
 """
 Configuración centralizada del proyecto MLOps_Secop — única fuente de verdad.
 
-Este módulo agrupa dos tipos de configuración, deliberadamente separados:
+Este modulo agrupa tres tipos de configuración, deliberadamente separados:
 
 1. Constantes de dominio SECOP (fijas, no dependen del entorno de
    ejecución): las columnas del dataset, la columna de fecha usada para
@@ -123,3 +123,49 @@ def dataset_id() -> str:
 def page_size() -> int:
     """Tamaño de página por defecto para la paginación de la API SODA."""
     return int(os.environ.get("SECOP_PAGE_SIZE", "5000"))
+
+
+# --------------------------------------------------------------------------
+# 3. Reglas de negocio -- modelo de deteccion de contratos atipicos
+# --------------------------------------------------------------------------
+
+# Comparar siempre en minusculas (LOWER()) al filtrar por estado -- el
+# dataset real tiene inconsistencias de mayusculas/minusculas confirmadas
+# empiricamente (ej. "terminado" vs "Terminado", "Cerrado" vs "cerrado").
+# Excluye estados previos a la ejecucion (Borrador, Convocado, Aprobado,
+# Activo) y estados anomalos del proceso (Cancelado, Suspendido), que no
+# son comparables por valor con contratos ejecutados normalmente.
+ESTADOS_VALIDOS: list[str] = [
+    "celebrado",
+    "adjudicado",
+    "en ejecución",
+    "liquidado",
+    "terminado",
+    "terminado sin liquidar",
+    "modificado",
+    "cerrado",
+]
+
+#: Rango de valor de contrato considerado para el modelo -- donde se
+#: concentra la mayoria de la contratacion publica en Colombia.
+VALOR_MIN: int = 1_000_000
+VALOR_MAX: int = 200_000_000
+
+#: Columnas que definen el grupo de comparacion para la feature
+#: valor_vs_promedio_categoria.
+CATEGORIA_COLS: list[str] = [
+    "modalidad_de_contrataci_n",
+    "departamento_entidad",
+]
+
+# Los nombres originales vienen truncados por Socrata. Este renombrado
+# SOLO aplica al dataset de features, nunca a data/raw/ ni a
+# contracts.parquet.
+COLUMN_RENAME_MAP: dict[str, str] = {
+    "modalidad_de_contrataci_n": "modalidad_de_contratacion",
+    "fecha_inicio_ejecuci_n": "fecha_inicio_ejecucion",
+    "fecha_fin_ejecuci_n": "fecha_fin_ejecucion",
+}
+
+CONTRACTS_PARQUET_PATH: str = "data/processed/secop_ii/contracts.parquet"
+FEATURES_OUTPUT_PATH: str = "data/processed/secop_ii/features.parquet"
