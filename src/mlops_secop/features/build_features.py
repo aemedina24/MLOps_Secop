@@ -79,9 +79,18 @@ ADDITIONAL_CATEGORICAL_COLS: list[str] = [
     "tipo_documento_proveedor",
 ]
 
+#: Columnas de solo referencia -- NUNCA se usan como input del modelo.
+#: `objeto_a_contratar` se agregó después de descubrir que dos ítems
+#: reales y distintos bajo el mismo numero_del_contrato (confirmado:
+#: un caso con "APOYO TECNOLOGICO..." y "SUMINISTRO DE INSUMOS..." como
+#: dos entregables separados del mismo contrato marco) se veían como
+#: filas idénticas en features.parquet una vez que se excluía el texto
+#: descriptivo -- sin esta columna, un auditor no podía distinguir que
+#: eran dos ítems reales, no un duplicado por error del pipeline.
 IDENTIFIER_COLS: list[str] = [
     "numero_del_contrato",
     "url_contrato",
+    "objeto_a_contratar",
 ]
 
 _RAW_COLUMNS_NEEDED: list[str] = list(
