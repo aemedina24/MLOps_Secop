@@ -179,11 +179,15 @@ def prepare_matrix(
 def train_model(
     X: sparse.csr_matrix,
     n_estimators: int = DEFAULT_N_ESTIMATORS,
+    max_samples: int | float | str = "auto",
+    max_features: float = 1.0,
     contamination: str | float = DEFAULT_CONTAMINATION,
     random_state: int = DEFAULT_RANDOM_STATE,
 ) -> IsolationForest:
     model = IsolationForest(
         n_estimators=n_estimators,
+        max_samples=max_samples,
+        max_features=max_features,
         contamination=contamination,
         random_state=random_state,
         n_jobs=-1,
