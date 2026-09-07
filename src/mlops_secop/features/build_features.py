@@ -204,6 +204,8 @@ def build_features() -> dict:
         tmp_dir.mkdir(parents=True, exist_ok=True)
         con.execute(f"PRAGMA temp_directory='{tmp_dir.as_posix()}'")
         con.execute("PRAGMA memory_limit='1.5GB'")
+        con.execute("SET preserve_insertion_order=false")
+        con.execute("SET threads=2")
 
         input_rows = con.execute(
             f"""

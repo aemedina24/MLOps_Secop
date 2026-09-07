@@ -10,12 +10,15 @@ requires-python = ">=3.11,<3.13"
 dependencies = [
     "duckdb>=1.5.5",
     "dvc[gdrive]>=3.67.1",
+    "mlflow>=3.16.0",
+    "optuna>=5.0.0",
     "pandas>=3.0.5",
     "pyarrow>=25.0.1",
     "pyopenssl>=24",
     "python-dotenv>=1.2.3",
     "requests>=2.34.2",
     "scikit-learn>=1.9.0",
+    "shap>=0.51.0",
 ]
 
 [dependency-groups]

@@ -15,3 +15,5 @@ data/processed/*
 
 models/*
 !models/.gitkeep
+mlruns/
+mlflow.db
