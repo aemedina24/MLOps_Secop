@@ -1,4 +1,4 @@
-stages:
+﻿stages:
   process:
     cmd: python -m mlops_secop.data.process_secop
     deps:
@@ -6,3 +6,11 @@ stages:
     - src/mlops_secop/data/process_secop.py
     outs:
     - data/processed/secop_ii/contracts.parquet
+  features:
+    cmd: python -m mlops_secop.features.build_features
+    deps:
+    - data/processed/secop_ii/contracts.parquet
+    - src/mlops_secop/features/build_features.py
+    - src/mlops_secop/config.py
+    outs:
+    - data/processed/secop_ii/features.parquet

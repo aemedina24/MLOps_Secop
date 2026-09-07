@@ -10,10 +10,30 @@ stages:
       nfiles: 1718
     - path: src/mlops_secop/data/process_secop.py
       hash: md5
-      md5: 4044b4528d39c9a59121cd4dfb42a918
-      size: 6134
+      md5: 9c79f19ce54c09d465732749364479c1
+      size: 6068
     outs:
     - path: data/processed/secop_ii/contracts.parquet
       hash: md5
-      md5: 8c1f5c71ead91bc63d73a9baa352737f
-      size: 2488799225
+      md5: a66c7929f63bbc0dbc9c27d1c51b0770
+      size: 2412081655
+  features:
+    cmd: python -m mlops_secop.features.build_features
+    deps:
+    - path: data/processed/secop_ii/contracts.parquet
+      hash: md5
+      md5: a66c7929f63bbc0dbc9c27d1c51b0770
+      size: 2412081655
+    - path: src/mlops_secop/config.py
+      hash: md5
+      md5: 084054a9e7ae15f2d2d58eaad24ec6b7
+      size: 6741
+    - path: src/mlops_secop/features/build_features.py
+      hash: md5
+      md5: e36916ae5bc21cc46b1209af00bb7fbe
+      size: 9501
+    outs:
+    - path: data/processed/secop_ii/features.parquet
+      hash: md5
+      md5: 684874436fc57627ecfd5cdf0f007745
+      size: 301105257
