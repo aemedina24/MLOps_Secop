@@ -5,33 +5,44 @@ contratos atípicos (Isolation Forest), a partir de
 
 Este script:
 1. Filtra los contratos según las reglas de negocio de `config.py`
-   (`ESTADOS_VALIDOS`, `VALOR_MIN`/`VALOR_MAX`).
-2. Convierte `valor_contrato` a numérico y las tres columnas de fecha
-   (`fecha_de_firma_del_contrato`, `fecha_inicio_ejecuci_n`,
-   `fecha_fin_ejecuci_n`) a tipo `DATE` real — en `contracts.parquet`
-   llegan como texto (`VARCHAR`), heredado deliberadamente de la capa
-   RAW, que nunca transforma valores.
-3. Calcula las features de alerta:
+   (`ESTADOS_VALIDOS`, `VALOR_MIN`/`VALOR_MAX`), y exige que
+   `fecha_inicio_ejecuci_n` y `fecha_fin_ejecuci_n` estén ambas
+   presentes y en orden correcto (Isolation Forest no acepta NaN;
+   ~624 contratos excluidos por fechas faltantes o invertidas, dato
+   erróneo de origen, ~0.01% del histórico).
+2. Selecciona EXPLÍCITAMENTE solo las columnas necesarias -- no usa
+   `SELECT *` sobre las 22 columnas originales. `contracts.parquet`
+   incluye varios campos de texto libre largo (`objeto_a_contratar`,
+   `objeto_del_proceso`, `nombre_de_la_entidad`) que no aportan señal
+   al modelo y multiplican el volumen de datos que hay que mover en
+   memoria. En una máquina con RAM limitada (confirmado: ~6GB totales)
+   esto fue la diferencia entre completar la consulta o agotar la
+   memoria, incluso después de migrar a GROUP BY + JOIN y configurar
+   spill a disco explícito.
+3. Convierte `valor_contrato` a numérico y las tres columnas de fecha a
+   tipo `DATE` real -- en `contracts.parquet` llegan como texto
+   (`VARCHAR`), heredado deliberadamente de la capa RAW.
+4. Calcula las features de alerta:
    - `valor_vs_promedio_categoria`: razón entre el valor del contrato y
-     el promedio de su categoría (`CATEGORIA_COLS` en config.py). Un
-     valor de 3.0 significa "este contrato vale 3 veces el promedio de
-     contratos con su misma modalidad y departamento".
+     el promedio de su categoría (`CATEGORIA_COLS` en config.py).
    - `duracion_dias`: días entre inicio y fin de ejecución.
    - `concentracion_proveedor`: cuántos contratos tiene ese mismo
-     proveedor (`documento_proveedor`) en todo el histórico filtrado.
-   - `mes_firma`, `dia_semana_firma`: para detectar estacionalidad o
-     patrones de fechas atípicas (ej. concentración de firmas a fin de
-     año o fin de semana).
-4. Renombra las columnas truncadas por Socrata según
-   `COLUMN_RENAME_MAP` (solo en este dataset derivado, no en RAW ni en
-   `contracts.parquet`).
-5. Guarda el resultado en `data/processed/secop_ii/features.parquet`.
+     proveedor en todo el histórico filtrado.
+   - `mes_firma`, `dia_semana_firma`: estacionalidad / fechas atípicas.
+5. Conserva `numero_del_contrato` y `url_contrato` como identificadores
+   de referencia (NO son features del modelo) -- sin esto, cuando el
+   modelo marque un contrato como atípico no habría forma de saber a
+   cuál contrato real corresponde para que un auditor lo revise.
+6. Renombra las columnas truncadas por Socrata según
+   `COLUMN_RENAME_MAP` (solo en este dataset derivado).
+7. Guarda el resultado en `data/processed/secop_ii/features.parquet`.
 
-Por qué DuckDB (consistente con process_secop.py): el volumen filtrado
-sigue siendo del orden de millones de filas (~6.2M en la última
-verificación), así que se mantiene el mismo enfoque out-of-core que ya
-se usa en el resto del pipeline, evitando el MemoryError que motivó esa
-decisión originalmente.
+Por qué GROUP BY + JOIN y no funciones de ventana: se intentó primero
+con `OVER (PARTITION BY ...)`, pero causó `OutOfMemoryException` sobre
+el volumen completo. El patrón GROUP BY + JOIN (igual que
+process_secop.py) calcula agregados sobre grupos pequeños que luego se
+unen de vuelta al dataset filtrado, en vez de mantener el particionado
+completo en memoria a la vez.
 
 Ejecución manual (PowerShell, con uv):
     uv run python -m mlops_secop.features.build_features
@@ -57,34 +68,68 @@ from mlops_secop.config import (
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
 
+# --------------------------------------------------------------------------
+# Selección explícita de columnas
+# --------------------------------------------------------------------------
+
+ADDITIONAL_CATEGORICAL_COLS: list[str] = [
+    "nivel_entidad",
+    "tipo_de_contrato",
+    "origen",
+    "tipo_documento_proveedor",
+]
+
+IDENTIFIER_COLS: list[str] = [
+    "numero_del_contrato",
+    "url_contrato",
+]
+
+_RAW_COLUMNS_NEEDED: list[str] = list(
+    dict.fromkeys(
+        [
+            "estado_del_proceso",
+            "valor_contrato",
+            "fecha_de_firma_del_contrato",
+            "fecha_inicio_ejecuci_n",
+            "fecha_fin_ejecuci_n",
+            "documento_proveedor",
+            *CATEGORIA_COLS,
+            *ADDITIONAL_CATEGORICAL_COLS,
+            *IDENTIFIER_COLS,
+        ]
+    )
+)
+
 
 def _estados_sql_list() -> str:
-    """Formatea ESTADOS_VALIDOS como lista SQL de strings entre comillas."""
     return ", ".join(f"'{estado}'" for estado in ESTADOS_VALIDOS)
 
 
 def _categoria_partition_by() -> str:
-    """
-    Columnas de CATEGORIA_COLS formateadas para una cláusula
-    PARTITION BY / GROUP BY.
-    """
     return ", ".join(CATEGORIA_COLS)
 
 
-def _base_filtered_cte() -> str:
-    """
-    CTE (Common Table Expression) con el filtro de negocio y las
-    conversiones de tipo aplicadas una sola vez, reutilizado por el resto
-    de la consulta.
+def _raw_columns_select() -> str:
+    return ", ".join(_RAW_COLUMNS_NEEDED)
 
-    LOWER() en el filtro de estado es obligatorio: el dataset real tiene
-    inconsistencias de mayúsculas/minúsculas confirmadas empíricamente
-    (ver config.py).
+
+def _where_clause() -> str:
+    return f"""
+        LOWER(estado_del_proceso) IN ({_estados_sql_list()})
+        AND TRY_CAST(valor_contrato AS DOUBLE)
+            BETWEEN {VALOR_MIN} AND {VALOR_MAX}
+        AND TRY_CAST(fecha_inicio_ejecuci_n AS DATE) IS NOT NULL
+        AND TRY_CAST(fecha_fin_ejecuci_n AS DATE) IS NOT NULL
+        AND TRY_CAST(fecha_fin_ejecuci_n AS DATE)
+            >= TRY_CAST(fecha_inicio_ejecuci_n AS DATE)
     """
+
+
+def _base_filtered_cte() -> str:
     return f"""
         base AS (
             SELECT
-                *,
+                {_raw_columns_select()},
                 TRY_CAST(valor_contrato AS DOUBLE) AS valor_contrato_num,
                 TRY_CAST(fecha_de_firma_del_contrato AS DATE)
                     AS fecha_de_firma_del_contrato_dt,
@@ -93,70 +138,73 @@ def _base_filtered_cte() -> str:
                 TRY_CAST(fecha_fin_ejecuci_n AS DATE)
                     AS fecha_fin_ejecuci_n_dt
             FROM read_parquet('{CONTRACTS_PARQUET_PATH}')
-            WHERE LOWER(estado_del_proceso) IN ({_estados_sql_list()})
-              AND TRY_CAST(valor_contrato AS DOUBLE)
-                  BETWEEN {VALOR_MIN} AND {VALOR_MAX}
+            WHERE {_where_clause()}
         )
     """
 
 
 def _build_query() -> str:
-    """
-    Construye la consulta completa de features.
-
-    Usa una ventana (AVG(...) OVER (PARTITION BY ...)) en vez de un JOIN
-    manual contra una tabla de promedios: es más simple de leer y DuckDB
-    la optimiza igual de bien para este volumen de datos.
-    """
     partition_by = _categoria_partition_by()
+    identifier_select = ", ".join(f"base.{c}" for c in IDENTIFIER_COLS)
+    categorical_select = ", ".join(f"base.{c}" for c in ADDITIONAL_CATEGORICAL_COLS)
 
     return f"""
         WITH {_base_filtered_cte()},
-        con_concentracion AS (
+        agg_categoria AS (
             SELECT
-                *,
-                COUNT(*) OVER (PARTITION BY documento_proveedor)
-                    AS concentracion_proveedor,
-                AVG(valor_contrato_num) OVER (PARTITION BY {partition_by})
-                    AS promedio_categoria
+                {partition_by},
+                AVG(valor_contrato_num) AS promedio_categoria
             FROM base
+            GROUP BY {partition_by}
+        ),
+        agg_proveedor AS (
+            SELECT
+                documento_proveedor,
+                COUNT(*) AS concentracion_proveedor
+            FROM base
+            GROUP BY documento_proveedor
         )
         SELECT
-            * EXCLUDE (
-                valor_contrato, valor_contrato_num,
-                fecha_de_firma_del_contrato, fecha_de_firma_del_contrato_dt,
-                fecha_inicio_ejecuci_n, fecha_inicio_ejecuci_n_dt,
-                fecha_fin_ejecuci_n, fecha_fin_ejecuci_n_dt,
-                promedio_categoria
-            ),
-            valor_contrato_num AS valor_contrato,
-            fecha_de_firma_del_contrato_dt AS fecha_de_firma_del_contrato,
-            fecha_inicio_ejecuci_n_dt AS fecha_inicio_ejecuci_n,
-            fecha_fin_ejecuci_n_dt AS fecha_fin_ejecuci_n,
-            valor_contrato_num / NULLIF(promedio_categoria, 0)
+            {identifier_select},
+            base.documento_proveedor,
+            base.{CATEGORIA_COLS[0]},
+            base.{CATEGORIA_COLS[1]},
+            {categorical_select},
+            base.valor_contrato_num AS valor_contrato,
+            base.fecha_de_firma_del_contrato_dt AS fecha_de_firma_del_contrato,
+            base.fecha_inicio_ejecuci_n_dt AS fecha_inicio_ejecuci_n,
+            base.fecha_fin_ejecuci_n_dt AS fecha_fin_ejecuci_n,
+            base.valor_contrato_num / NULLIF(agg_categoria.promedio_categoria, 0)
                 AS valor_vs_promedio_categoria,
             DATE_DIFF(
-                'day', fecha_inicio_ejecuci_n_dt, fecha_fin_ejecuci_n_dt
+                'day', base.fecha_inicio_ejecuci_n_dt, base.fecha_fin_ejecuci_n_dt
             ) AS duracion_dias,
-            MONTH(fecha_de_firma_del_contrato_dt) AS mes_firma,
-            DAYOFWEEK(fecha_de_firma_del_contrato_dt) AS dia_semana_firma
-        FROM con_concentracion
+            MONTH(base.fecha_de_firma_del_contrato_dt) AS mes_firma,
+            DAYOFWEEK(base.fecha_de_firma_del_contrato_dt) AS dia_semana_firma,
+            agg_proveedor.concentracion_proveedor AS concentracion_proveedor
+        FROM base
+        JOIN agg_categoria USING ({partition_by})
+        JOIN agg_proveedor USING (documento_proveedor)
     """
 
 
 def build_features() -> dict:
     con = duckdb.connect()
     try:
+        tmp_dir = Path(FEATURES_OUTPUT_PATH).parent / ".duckdb_tmp"
+        tmp_dir.mkdir(parents=True, exist_ok=True)
+        con.execute(f"PRAGMA temp_directory='{tmp_dir.as_posix()}'")
+        con.execute("PRAGMA memory_limit='1.5GB'")
+
         input_rows = con.execute(
             f"""
             SELECT COUNT(*) FROM read_parquet('{CONTRACTS_PARQUET_PATH}')
-            WHERE LOWER(estado_del_proceso) IN ({_estados_sql_list()})
-              AND TRY_CAST(valor_contrato AS DOUBLE)
-                  BETWEEN {VALOR_MIN} AND {VALOR_MAX}
+            WHERE {_where_clause()}
             """
         ).fetchone()[0]
         logger.info(
-            "Contratos que pasan el filtro de negocio (estado + rango de valor): %s",
+            "Contratos que pasan el filtro de negocio (estado + rango de "
+            "valor + duracion valida): %s",
             input_rows,
         )
 
@@ -169,9 +217,6 @@ def build_features() -> dict:
     finally:
         con.close()
 
-    # El renombrado de columnas truncadas (COLUMN_RENAME_MAP) se aplica
-    # como paso final, sobre el Parquet ya escrito, para no complicar el
-    # SQL principal con alias adicionales.
     _rename_columns(FEATURES_OUTPUT_PATH)
 
     summary = {
@@ -179,22 +224,14 @@ def build_features() -> dict:
         "output_rows": output_rows,
         "output_path": FEATURES_OUTPUT_PATH,
         "categoria_cols": CATEGORIA_COLS,
+        "additional_categorical_cols": ADDITIONAL_CATEGORICAL_COLS,
+        "identifier_cols": IDENTIFIER_COLS,
     }
     logger.info("Resumen de features: %s", summary)
     return summary
 
 
 def _rename_columns(parquet_path: str) -> None:
-    """
-    Aplica COLUMN_RENAME_MAP sobre el Parquet ya escrito.
-
-    Escribe a un archivo temporal y luego reemplaza el original -- NUNCA
-    se lee y escribe el mismo archivo en la misma consulta COPY: DuckDB
-    evalúa la lectura de forma perezosa, así que leer y sobrescribir el
-    mismo path en una sola operación puede corromper el archivo (el
-    escritor podría empezar a truncar el archivo mientras el lector
-    todavía no terminó de leerlo).
-    """
     path = Path(parquet_path)
     tmp_path = path.with_suffix(".tmp.parquet")
 

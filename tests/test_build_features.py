@@ -30,6 +30,12 @@ DEFAULT_ROW = {
     "documento_proveedor": "900123456",
     "modalidad_de_contrataci_n": "Contratacion directa",
     "departamento_entidad": "Antioquia",
+    "nivel_entidad": "Territorial",
+    "tipo_de_contrato": "Prestacion de servicios",
+    "origen": "SECOPII",
+    "tipo_documento_proveedor": "NIT",
+    "numero_del_contrato": "CTO-001",
+    "url_contrato": "https://example.com/CTO-001",
 }
 
 
@@ -61,6 +67,69 @@ def isolated_paths(tmp_path, monkeypatch):
     monkeypatch.setattr(bf, "CONTRACTS_PARQUET_PATH", str(contracts_path))
     monkeypatch.setattr(bf, "FEATURES_OUTPUT_PATH", str(features_path))
     return contracts_path, features_path
+
+
+def test_identifier_columns_preserved(isolated_paths):
+    """
+    numero_del_contrato y url_contrato deben llegar intactos al output
+    -- son la única forma de rastrear un contrato real cuando el modelo
+    lo marque como atipico. No son features, son referencia.
+    """
+    contracts_path, features_path = isolated_paths
+    _write_contracts_parquet(
+        contracts_path,
+        [_row(numero_del_contrato="CTO-999", url_contrato="https://x.co/999")],
+    )
+
+    bf.build_features()
+
+    result = pd.read_parquet(features_path)
+    assert result["numero_del_contrato"].iloc[0] == "CTO-999"
+    assert result["url_contrato"].iloc[0] == "https://x.co/999"
+
+
+def test_filters_out_reversed_dates(isolated_paths):
+    """
+    fecha_fin anterior a fecha_inicio es un error de captura confirmado
+    en el dato de origen (619 casos en el histórico real) -- esos
+    contratos se excluyen por completo, no solo se les pone NULL en
+    duracion_dias.
+    """
+    contracts_path, features_path = isolated_paths
+    rows = [
+        _row(
+            documento_proveedor="A",
+            fecha_inicio_ejecuci_n="2024-03-01",
+            fecha_fin_ejecuci_n="2024-01-01",  # invertida
+        ),
+        _row(
+            documento_proveedor="B",
+            fecha_inicio_ejecuci_n="2024-01-01",
+            fecha_fin_ejecuci_n="2024-03-01",  # correcta
+        ),
+    ]
+    _write_contracts_parquet(contracts_path, rows)
+
+    summary = bf.build_features()
+
+    assert summary["output_rows"] == 1
+    result = pd.read_parquet(features_path)
+    assert result["documento_proveedor"].iloc[0] == "B"
+
+
+def test_filters_out_rows_with_null_dates(isolated_paths):
+    """
+    Isolation Forest no acepta NaN -- fecha_inicio y fecha_fin deben
+    estar ambas presentes para que el contrato entre al dataset de
+    features, no solo tener el orden correcto cuando existen.
+    """
+    contracts_path, features_path = isolated_paths
+    rows = [_row(fecha_inicio_ejecuci_n="no-es-una-fecha")]
+    _write_contracts_parquet(contracts_path, rows)
+
+    summary = bf.build_features()
+
+    assert summary["output_rows"] == 0
 
 
 def test_filters_out_invalid_estado(isolated_paths):
