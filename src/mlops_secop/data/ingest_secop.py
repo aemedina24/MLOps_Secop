@@ -27,6 +27,10 @@ Variables de entorno opcionales:
 - SECOP_RAW_DIR          (default: data/raw/secop_ii)
 - SECOP_CHECKPOINT_PATH  (default: data/raw/_checkpoints/last_extraction.json)
 
+Las columnas del dataset, la columna de fecha, la fecha de inicio del
+histórico y los tamaños de ventana viven en `mlops_secop.config` (única
+fuente de verdad, compartida con el resto del pipeline).
+
 Ejecución manual (PowerShell, con uv):
     uv run python -m mlops_secop.data.ingest_secop
 """
@@ -43,6 +47,14 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 from dotenv import load_dotenv
 
+from mlops_secop import config
+from mlops_secop.config import (
+    CHUNK_DAYS,
+    COLUMNS,
+    DATE_COLUMN,
+    DEFAULT_START_DATE,
+    OVERLAP_DAYS,
+)
 from mlops_secop.data.socrata_client import SocrataClient, SocrataClientConfig
 
 # Carga las variables de .env hacia el entorno del proceso, si el archivo
@@ -53,45 +65,6 @@ load_dotenv()
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
-
-# --------------------------------------------------------------------------
-# 1. Configuración fija del dataset (las 22 columnas exigidas, sin SELECT *)
-# --------------------------------------------------------------------------
-
-COLUMNS: list[str] = [
-    "nivel_entidad",
-    "codigo_entidad_en_secop",
-    "nombre_de_la_entidad",
-    "nit_de_la_entidad",
-    "departamento_entidad",
-    "municipio_entidad",
-    "estado_del_proceso",
-    "modalidad_de_contrataci_n",
-    "objeto_a_contratar",
-    "objeto_del_proceso",
-    "tipo_de_contrato",
-    "fecha_de_firma_del_contrato",
-    "fecha_inicio_ejecuci_n",
-    "fecha_fin_ejecuci_n",
-    "numero_del_contrato",
-    "numero_de_proceso",
-    "valor_contrato",
-    "nom_raz_social_contratista",
-    "url_contrato",
-    "origen",
-    "tipo_documento_proveedor",
-    "documento_proveedor",
-]
-
-DATE_COLUMN = "fecha_de_firma_del_contrato"
-DEFAULT_START_DATE = datetime(2022, 1, 1, tzinfo=UTC)
-
-# Tamaño de cada ventana de fecha para acotar el $offset. 15 días es un
-# punto de partida razonable para un dataset de millones de filas
-# distribuidas en varios años; si en el futuro alguna ventana sigue
-# teniendo timeouts, se puede bajar este valor sin tocar el resto del
-# diseño.
-CHUNK_DAYS = 15
 
 
 def _load_config() -> SocrataClientConfig:
@@ -104,29 +77,19 @@ def _load_config() -> SocrataClientConfig:
         )
 
     return SocrataClientConfig(
-        base_url=os.environ.get(
-            "SECOP_API_BASE_URL", "https://www.datos.gov.co/resource"
-        ),
-        dataset_id=os.environ.get("SECOP_DATASET_ID", "rpmr-utcd"),
+        base_url=config.api_base_url(),
+        dataset_id=config.dataset_id(),
         app_token=token,
     )
 
 
 # --------------------------------------------------------------------------
-# 2. Checkpoint — habilita la extracción incremental
+# Checkpoint — habilita la extracción incremental
 # --------------------------------------------------------------------------
 
 
-def _checkpoint_path() -> Path:
-    return Path(
-        os.environ.get(
-            "SECOP_CHECKPOINT_PATH", "data/raw/_checkpoints/last_extraction.json"
-        )
-    )
-
-
 def _read_checkpoint() -> datetime | None:
-    path = _checkpoint_path()
+    path = config.checkpoint_path()
     if not path.exists():
         return None
     payload = json.loads(path.read_text(encoding="utf-8"))
@@ -134,7 +97,7 @@ def _read_checkpoint() -> datetime | None:
 
 
 def _write_checkpoint(extraction_end: datetime) -> None:
-    path = _checkpoint_path()
+    path = config.checkpoint_path()
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
         json.dumps(
@@ -146,9 +109,6 @@ def _write_checkpoint(extraction_end: datetime) -> None:
         ),
         encoding="utf-8",
     )
-
-
-OVERLAP_DAYS = 5  # nueva constante, cerca de CHUNK_DAYS
 
 
 def _resolve_date_range() -> tuple[datetime, datetime]:
@@ -204,7 +164,7 @@ def _iter_date_chunks(
 
 
 # --------------------------------------------------------------------------
-# 3. Persistencia RAW (Parquet, sin transformar valores)
+# Persistencia RAW (Parquet, sin transformar valores)
 # --------------------------------------------------------------------------
 
 
@@ -231,21 +191,21 @@ def _save_page_as_parquet(page: list[dict], run_dir: Path, page_number: int) -> 
 
 
 # --------------------------------------------------------------------------
-# 4. Orquestación
+# Orquestación
 # --------------------------------------------------------------------------
 
 
 def run_ingestion(page_size: int | None = None) -> dict:
-    config = _load_config()
-    page_size = page_size or int(os.environ.get("SECOP_PAGE_SIZE", "5000"))
+    client_config = _load_config()
+    page_size = page_size or config.page_size()
 
     desde, hasta = _resolve_date_range()
     logger.info("Rango de extracción: %s -> %s", desde.isoformat(), hasta.isoformat())
 
-    raw_root = Path(os.environ.get("SECOP_RAW_DIR", "data/raw/secop_ii"))
+    raw_root = config.raw_dir()
     run_dir = raw_root / f"ingestion_date={datetime.now(UTC):%Y-%m-%d}"
 
-    client = SocrataClient(config)
+    client = SocrataClient(client_config)
 
     total_rows = 0
     total_pages = 0

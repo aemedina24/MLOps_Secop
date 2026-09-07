@@ -30,6 +30,9 @@ Variables de entorno opcionales:
 - SECOP_RAW_DIR        (default: data/raw/secop_ii)
 - SECOP_PROCESSED_DIR  (default: data/processed/secop_ii)
 
+Las rutas por defecto viven en `mlops_secop.config` (única fuente de
+verdad, compartida con `ingest_secop.py`).
+
 Ejecución manual (PowerShell, con uv):
     uv run python -m mlops_secop.data.process_secop
 """
@@ -37,21 +40,14 @@ Ejecución manual (PowerShell, con uv):
 from __future__ import annotations
 
 import logging
-import os
 from pathlib import Path
 
 import duckdb
 
+from mlops_secop import config
+
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
-
-
-def _raw_dir() -> Path:
-    return Path(os.environ.get("SECOP_RAW_DIR", "data/raw/secop_ii"))
-
-
-def _processed_dir() -> Path:
-    return Path(os.environ.get("SECOP_PROCESSED_DIR", "data/processed/secop_ii"))
 
 
 def _raw_glob(raw_root: Path) -> str:
@@ -116,8 +112,8 @@ def _dedup_query(raw_glob: str) -> str:
 
 
 def run_processing() -> dict:
-    raw_root = _raw_dir()
-    processed_root = _processed_dir()
+    raw_root = config.raw_dir()
+    processed_root = config.processed_dir()
     processed_root.mkdir(parents=True, exist_ok=True)
 
     _warn_empty_partitions(raw_root)
