@@ -115,11 +115,11 @@ MLOps_Secop/
 
 ### 🚀 Fase 4 — Model Serving y Contenedores
 
-- [ ] Creación de API de inferencia con `FastAPI`
-- [ ] Creación del `Dockerfile`
-- [ ] Contenerización del modelo
-- [ ] Configuración de `docker-compose`
-- [ ] Pruebas de la API
+- [x] Creación de API de inferencia con `FastAPI`
+- [x] Creación del `Dockerfile`
+- [x] Contenerización del modelo
+- [x] Configuración de `docker-compose`
+- [x] Pruebas de la API
 
 ### 🔄 Fase 5 — CI/CD
 
@@ -137,12 +137,12 @@ MLOps_Secop/
 
 ### 📊 Fase 6 — Monitoreo y Gobernanza
 
-- [ ] Configuración de `Evidently`
-- [ ] Monitoreo de Data Drift
-- [ ] Monitoreo de Model Drift
-- [ ] Seguimiento del rendimiento del modelo
-- [ ] Generación de reportes
-- [ ] Definición de estrategia de reentrenamiento
+- [x] Configuración de `Evidently`
+- [x] Monitoreo de Data Drift
+- [x] Monitoreo de Model Drift
+- [x] Seguimiento del rendimiento del modelo
+- [x] Generación de reportes
+- [x] Definición de estrategia de reentrenamiento
 
 ### 🔁 Fase 7 — Ciclo MLOps Completo
 
