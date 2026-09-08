@@ -18,3 +18,6 @@ models/*
 !models/*.dvc
 mlruns/
 mlflow.db
+
+# Copias locales de archivos entregados por Claude (no son parte del proyecto)
+Claude outputs/
