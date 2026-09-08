@@ -153,6 +153,35 @@ Dos de las columnas con drift son precisamente las relacionadas con
 valor monetario: `valor_contrato` y `valor_vs_promedio_categoria` — 
 consistente con la hipótesis de sesgo por inflación, no una sorpresa.
 
+**Segunda pieza de evidencia — model drift:** además del drift en los
+datos de entrada, se comparó cómo se comporta el **modelo ya
+entrenado** (sin reentrenar) sobre contratos de 2023 vs 2025-2026
+(`reports/model_drift_2023_vs_2025_2026.html`,
+`model_drift_report.py`). Resultado:
+
+| Métrica del reporte | 2023 (referencia) | 2025-2026 (actual) |
+|---|---|---|
+| Contratos evaluados | 1,202,009 | 2,156,337 |
+| Tasa de anomalías detectadas | 0.0033% | 0.0053% |
+| Cambio relativo en la tasa | +60.3% | |
+| Drift detectado en `anomaly_score` | Sí | |
+
+El modelo marca proporcionalmente **60% más contratos como atípicos**
+en el periodo reciente que en 2023, sin haber sido reentrenado entre
+ambos periodos — es decir, el mismo modelo se comporta distinto según
+la época que evalúa. Esto es consistente con (y refuerza) la hipótesis
+del sesgo de IPC: si `valor_vs_promedio_categoria` está sesgado hacia
+arriba en contratos recientes, es esperable que el modelo marque
+proporcionalmente más de ellos como atípicos, sin que eso signifique
+necesariamente más irregularidad real en 2025-2026 que en 2023.
+
+**Nota de interpretación importante:** este cambio del 60% en la tasa
+de anomalías **no debe interpretarse automáticamente como una señal de
+que el modelo necesita reentrenarse** (ver `ESTRATEGIA_REENTRENAMIENTO.md`,
+sección 1.2) — es exactamente el comportamiento que se anticiparía
+dado el sesgo ya conocido, no una sorpresa que amerite una respuesta
+reactiva sin diagnóstico previo.
+
 **Solución identificada pero pospuesta por tiempo:** normalizar
 `valor_vs_promedio_categoria` dentro del mismo año de firma (agregar el
 año a `CATEGORIA_COLS` en `build_features.py`) en vez de deflactar con
@@ -232,7 +261,17 @@ archivo que sea dependencia de un stage de DVC, no después.
 
 ---
 
-## 5. Resumen para quien vaya a usar o auditar este modelo
+## 5. Monitoreo y reentrenamiento
+
+| Componente | Ubicación | Qué mide |
+|---|---|---|
+| Data drift | `src/mlops_secop/monitoring/evidently_report.py`, `reports/data_drift_2023_vs_2025_2026.html` | Cambios en la distribución de las 12 columnas de entrada del modelo |
+| Model drift | `src/mlops_secop/monitoring/model_drift_report.py`, `reports/model_drift_2023_vs_2025_2026.html` | Cambios en `anomaly_score` y en la tasa de anomalías que produce el mismo modelo, sin reentrenar |
+| Estrategia de reentrenamiento | `docs/ESTRATEGIA_REENTRENAMIENTO.md` | Cuándo reentrenar (disparadores), cómo validar un modelo nuevo antes de promoverlo, y plan de rollback |
+
+---
+
+## 6. Resumen para quien vaya a usar o auditar este modelo
 
 - El modelo detecta candidatos a revisión manual, **no** confirma
   fraude — un `anomaly_score` alto significa "estadísticamente
