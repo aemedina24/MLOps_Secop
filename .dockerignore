@@ -1,0 +1,22 @@
+# No copiar el historico de datos ni el entorno local a la imagen --
+# el modelo/encoder/tablas de referencia ya versionados con DVC se
+# copian explícitamente en el Dockerfile; el resto del pipeline
+# (ingesta, procesamiento, features, entrenamiento) no hace falta
+# dentro del contenedor que solo sirve el modelo.
+.venv/
+.git/
+.github/
+.dvc/
+.pytest_cache/
+.duckdb_tmp/
+__pycache__/
+*.pyc
+data/
+mlruns/
+mlflow.db
+notebooks/
+tests/
+Claude outputs/
+*.md
+.env
+.pre-commit-config.yaml
