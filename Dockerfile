@@ -19,7 +19,7 @@ WORKDIR /app
 # Copiar solo los archivos de dependencias primero -- aprovecha el
 # cache de capas de Docker: si despues solo cambia el codigo (src/),
 # no hay que reinstalar todas las dependencias de nuevo.
-COPY pyproject.toml uv.lock ./
+COPY pyproject.toml uv.lock README.md ./
 RUN uv sync --no-dev --no-install-project
 
 COPY src/ ./src/
@@ -36,4 +36,4 @@ COPY models/isolation_forest.joblib \
 
 EXPOSE 8000
 
-CMD ["uv", "run", "uvicorn", "mlops_secop.api.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uv", "run", "--no-dev", "uvicorn", "mlops_secop.api.main:app", "--host", "0.0.0.0", "--port", "8000"]

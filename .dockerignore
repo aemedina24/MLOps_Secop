@@ -18,5 +18,6 @@ notebooks/
 tests/
 Claude outputs/
 *.md
+!README.md
 .env
 .pre-commit-config.yaml
