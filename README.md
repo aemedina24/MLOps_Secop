@@ -98,20 +98,20 @@ MLOps_Secop/
 
 - [x] Configuración del repositorio en `GitHub`
 - [x] Configuración de `DVC`
-- [ ] Versionamiento de datasets (pendiente: ejecutar ingesta real + `dvc add`)
-- [ ] Organización de datos en `raw/` y `processed/`
-- [ ] Creación del pipeline de datos
+- [x] Versionamiento de datasets
+- [x] Organización de datos en `raw/` y `processed/`
+- [x] Creación del pipeline de datos
 
 ### 🤖 Fase 3 — Machine Learning y Experiment Tracking
 
 - [ ] Exploración y análisis de los datos (EDA)
-- [ ] Feature Engineering
-- [ ] Implementación de modelos base
-- [ ] Implementación de AutoML
+- [x] Feature Engineering
+- [x] Implementación de modelos base
+- [x] Implementación de AutoML
 - [ ] Evaluación y comparación de modelos
-- [ ] Configuración de `MLflow`
-- [ ] Tracking de experimentos
-- [ ] Registro de modelos mediante MLflow Model Registry
+- [x] Configuración de `MLflow`
+- [x] Tracking de experimentos
+- [x] Registro de modelos mediante MLflow Model Registry
 
 ### 🚀 Fase 4 — Model Serving y Contenedores
 
