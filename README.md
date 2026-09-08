@@ -104,7 +104,7 @@ MLOps_Secop/
 
 ### 🤖 Fase 3 — Machine Learning y Experiment Tracking
 
-- [ ] Exploración y análisis de los datos (EDA)
+- [x] Exploración y análisis de los datos (EDA)
 - [x] Feature Engineering
 - [x] Implementación de modelos base
 - [x] Implementación de AutoML
