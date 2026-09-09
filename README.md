@@ -82,15 +82,13 @@ MLOps_Secop/
 
 ### ✅ Fase 1 — Cimientos y Calidad
 
-| Componente | Estado | Detalle |
-|---|---|---|
-| Git + GitHub | 🟡 | Flujo de PRs en uso; protección formal de rama `main` pendiente de activar en GitHub Settings |
-| uv + pyproject.toml + uv.lock | ✅ | Entorno reproducible |
-| Dependencias dev separadas | ✅ | `[dependency-groups] dev` (pytest, ruff, pre-commit) |
-| Ruff configurado | ✅ | `[tool.ruff]` — reglas E, F, I, UP, line-length 88 |
-| pytest configurado + tests reales | ✅ | `[tool.pytest.ini_options]` + `tests/test_mlops_secop.py` |
-| pre-commit activo | ✅ | Verificado en cada commit |
-| Estructura `src/` | ✅ | Código productivo separado de notebooks |
+- [ ] Git + GitHub (protección formal de rama `main` pendiente de activar en GitHub Settings)
+- [x] Entorno reproducible con `uv` (`pyproject.toml` + `uv.lock`)
+- [x] Dependencias dev separadas (`pytest`, `ruff`, `pre-commit`)
+- [x] Ruff configurado (reglas E, F, I, UP)
+- [x] pytest configurado con tests reales
+- [x] pre-commit activo
+- [x] Estructura `src/` (código productivo separado de notebooks)
 
 **Para contribuir al proyecto, ver [`CONTRIBUTING.md`](./CONTRIBUTING.md)**
 (flujo de Git, convención de commits, troubleshooting).
@@ -240,5 +238,23 @@ Configura el entorno inicial del proyecto.
 ---
 ## 🎯 Objetivo del Proyecto
 
-El objetivo de MLOps_Secop es construir un sistema reproducible y mantenible para desarrollar soluciones de Machine Learning utilizando datos de contratación pública del SECOP.
+MLOps_Secop construye un pipeline reproducible de extremo a extremo para
+detectar contratos potencialmente atípicos o irregulares en los datos
+abiertos de contratación pública de SECOP II. Como no existe una fuente
+de datos con contratos ya confirmados como fraudulentos, el problema se
+aborda como **detección de anomalías no supervisada** (Isolation
+Forest): el modelo aprende el comportamiento típico de un contrato
+según su tipo, entidad, valor y modalidad, y señala qué tan atípico es
+uno nuevo respecto a ese patrón, explicando con SHAP qué variables
+influyen en cada predicción. Un `anomaly_score` alto es un **candidato
+a revisión manual por un auditor, no una acusación automática de
+fraude**.
+
+Más allá del modelo en sí, el proyecto aplica de punta a punta las
+prácticas de MLOps del curso: versionamiento de datos y modelos con
+DVC, tracking de experimentos con MLflow, una API de inferencia
+contenerizada (FastAPI + Docker), y monitoreo de drift con gobernanza
+documentada (Evidently) — ver [`docs/GOBERNANZA.md`](./docs/GOBERNANZA.md)
+para el detalle completo, incluyendo las limitaciones conocidas del
+modelo actual.
 
