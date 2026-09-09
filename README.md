@@ -48,25 +48,26 @@ MLOps_Secop/
 │   ├── raw/                # Datos originales
 │   └── processed/          # Datos procesados
 │
+├── docs/                   # Gobernanza y estrategia de reentrenamiento
+│   ├── GOBERNANZA.md
+│   └── ESTRATEGIA_REENTRENAMIENTO.md
+│
 ├── notebooks/              # Exploración y análisis inicial (EDA)
 │
 ├── src/
 │   └── mlops_secop/
+│       ├── config.py       # Configuración central del proyecto
 │       ├── data/           # Ingesta y procesamiento de datos
 │       ├── features/       # Ingeniería de características
-│       ├── models/         # Definición y gestión de modelos
-│       ├── training/       # Entrenamiento
-│       └── inference/      # Inferencia y predicciones
+│       ├── model/          # Entrenamiento, tuning (Optuna) y SHAP
+│       ├── api/            # API de inferencia (FastAPI)
+│       └── monitoring/     # Data/Model Drift (Evidently)
 │
 ├── tests/                  # Pruebas automatizadas con pytest
 │
-├── configs/                # Configuraciones del proyecto
+├── models/                 # Artefactos de modelos (versionados con DVC)
 │
-├── models/                 # Artefactos de modelos
-│
-├── reports/                # Reportes y resultados
-│
-├── scripts/                # Scripts auxiliares
+├── reports/                # Reportes HTML de Evidently (data/model drift)
 │
 ├── Makefile                # Automatización de comandos
 ├── pyproject.toml          # Configuración y dependencias del proyecto
@@ -143,6 +144,12 @@ MLOps_Secop/
 - [x] Seguimiento del rendimiento del modelo
 - [x] Generación de reportes
 - [x] Definición de estrategia de reentrenamiento
+
+**Documentación completa de gobernanza y reentrenamiento:**
+[`docs/GOBERNANZA.md`](./docs/GOBERNANZA.md) (qué modelo está en
+producción, con qué datos/código, métricas y limitaciones conocidas) y
+[`docs/ESTRATEGIA_REENTRENAMIENTO.md`](./docs/ESTRATEGIA_REENTRENAMIENTO.md)
+(disparadores de reentrenamiento, proceso de validación y rollback).
 
 ### 🔁 Fase 7 — Ciclo MLOps Completo
 
