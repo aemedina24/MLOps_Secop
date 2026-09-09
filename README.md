@@ -126,13 +126,23 @@ MLOps_Secop/
 - [x] Automatización de pruebas
 - [x] Automatización de Ruff
 - [ ] Validación automática de Pull Requests (pendiente: branch protection)
-- [ ] Construcción automática de imagen Docker
+- [x] Construcción automática de imagen Docker
 - [ ] Pipeline de despliegue
 
 > **Nota:** la configuración base de CI/CD (GitHub Actions con `uv sync`
 > + `ruff` + `pytest`) se adelantó desde la Fase 1, antes de completar
 > Fase 2, porque se detectó que ningún Pull Request tenía validación
 > automática. Ver `.github/workflows/ci.yml`.
+>
+> **Nota sobre el build de Docker en CI:** el job `docker-build` construye
+> la imagen en cada PR usando archivos vacíos como reemplazo de los 4
+> artefactos de `models/` (versionados con DVC en Google Drive, sin
+> credenciales configuradas en el runner). Esto valida que el `Dockerfile`
+> y las dependencias siguen funcionando, pero no prueba el modelo real —
+> eso ya lo cubren `test_api.py` y la validación manual end-to-end del
+> equipo. El "Pipeline de despliegue" queda fuera de alcance: no hay un
+> servidor ni un ambiente real donde desplegar la imagen para este
+> proyecto académico.
 
 ### 📊 Fase 6 — Monitoreo y Gobernanza
 
@@ -211,6 +221,21 @@ producción, con qué datos/código, métricas y limitaciones conocidas) y
 
    5. El archivo `.env` nunca se versiona (ya está en `.gitignore`); si
       clonas el proyecto en otra máquina, repite este paso ahí también.
+
+5. Descargar los datos y modelos versionados con DVC
+
+   ```powershell
+   uv run dvc pull
+   ```
+
+   > **Importante:** los datos procesados y los artefactos de `models/`
+   > (el modelo entrenado, el encoder, las tablas de referencia) están
+   > versionados con DVC en un remoto de Google Drive, **no en Git**. Para
+   > que `dvc pull` funcione, tu cuenta de Google necesita permiso de
+   > lectura sobre esa carpeta de Drive — pídele acceso a alguien del
+   > equipo si es la primera vez que clonas el repositorio. Sin este paso,
+   > `docker compose up --build` fallará al intentar copiar los archivos
+   > de `models/` (ver Fase 4 más abajo).
 
 > **Nota (Windows):** `make` no viene instalado por defecto. Instalalo
 > con [Chocolatey](https://chocolatey.org/install) (`choco install make -y`,

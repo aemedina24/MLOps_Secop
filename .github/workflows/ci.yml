@@ -29,3 +29,30 @@ jobs:
 
       - name: Ejecutar tests (pytest)
         run: uv run pytest
+
+  docker-build:
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - name: Checkout codigo
+        uses: actions/checkout@v4
+
+      - name: Crear artefactos de modelo de prueba (placeholders)
+        # Los 4 archivos que el Dockerfile copia desde models/ estan
+        # versionados con DVC (remoto en Google Drive), no con Git -- este
+        # runner no tiene credenciales para descargarlos (dvc pull
+        # requeriria una cuenta de servicio de Google configurada como
+        # secret, fuera de alcance por ahora). Se crean archivos vacios
+        # solo para que el Dockerfile tenga algo que copiar y se pueda
+        # validar que la imagen construye correctamente. Esto NO valida
+        # que el modelo real sirva predicciones correctas -- eso ya lo
+        # cubren test_api.py y la validacion manual end-to-end del equipo.
+        run: |
+          mkdir -p models
+          touch models/isolation_forest.joblib
+          touch models/onehot_encoder.joblib
+          touch models/categoria_promedios.parquet
+          touch models/proveedor_conteos.parquet
+
+      - name: Construir imagen Docker
+        run: docker build -t mlops-secop-api:ci .
