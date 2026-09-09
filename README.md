@@ -127,7 +127,7 @@ MLOps_Secop/
 - [x] Automatización de Ruff
 - [ ] Validación automática de Pull Requests (pendiente: branch protection)
 - [x] Construcción automática de imagen Docker
-- [ ] Pipeline de despliegue
+- [x] Pipeline de despliegue (publicación de la imagen en GHCR)
 
 > **Nota:** la configuración base de CI/CD (GitHub Actions con `uv sync`
 > + `ruff` + `pytest`) se adelantó desde la Fase 1, antes de completar
@@ -140,9 +140,22 @@ MLOps_Secop/
 > credenciales configuradas en el runner). Esto valida que el `Dockerfile`
 > y las dependencias siguen funcionando, pero no prueba el modelo real —
 > eso ya lo cubren `test_api.py` y la validación manual end-to-end del
-> equipo. El "Pipeline de despliegue" queda fuera de alcance: no hay un
-> servidor ni un ambiente real donde desplegar la imagen para este
-> proyecto académico.
+> equipo.
+>
+> **Nota sobre el "Pipeline de despliegue":** en cada `push` a `main` (no
+> en los PRs), el job `docker-build` etiqueta y publica la imagen ya
+> construida en GitHub Container Registry
+> (`ghcr.io/aemedina24/mlops-secop-api`), usando el `GITHUB_TOKEN`
+> automático del workflow — sin necesidad de credenciales nuevas. Esto
+> cierra el ciclo build → publish de un pipeline de despliegue real, pero
+> con la misma limitación de arriba: la imagen publicada usa los
+> artefactos de modelo vacíos (placeholder), así que sirve como evidencia
+> de que el pipeline de publicación funciona de punta a punta, **no**
+> como una imagen lista para servir predicciones reales. Para correr la
+> API con el modelo real, sigue la Guía de Inicio Rápido (`dvc pull` +
+> `docker compose up --build`) más abajo. Desplegar automáticamente esa
+> imagen en un servidor o servicio en la nube quedó fuera de alcance: no
+> hay un ambiente real donde correrla para este proyecto académico.
 
 ### 📊 Fase 6 — Monitoreo y Gobernanza
 

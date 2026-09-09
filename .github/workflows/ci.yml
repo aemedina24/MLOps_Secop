@@ -33,6 +33,9 @@ jobs:
   docker-build:
     runs-on: ubuntu-latest
     needs: test
+    permissions:
+      contents: read
+      packages: write
     steps:
       - name: Checkout codigo
         uses: actions/checkout@v4
@@ -56,3 +59,30 @@ jobs:
 
       - name: Construir imagen Docker
         run: docker build -t mlops-secop-api:ci .
+
+      - name: Iniciar sesion en GitHub Container Registry
+        # Solo en push a main (nunca en PRs -- un PR de un fork no deberia
+        # poder publicar paquetes con el GITHUB_TOKEN de este repo).
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publicar imagen en GHCR
+        # Publica el MISMO artefacto placeholder validado arriba (modelo
+        # vacio, ver paso anterior) -- es evidencia de que el pipeline
+        # build -> publish funciona de punta a punta (Fase 5, "pipeline de
+        # despliegue"), no una imagen lista para servir predicciones
+        # reales. Para correr la API de verdad hay que seguir la Guia de
+        # Inicio Rapido (dvc pull + docker compose up --build) con los
+        # artefactos reales del modelo. Documentado tambien en el README.
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          IMAGE="ghcr.io/${{ github.repository_owner }}/mlops-secop-api"
+          IMAGE=$(echo "$IMAGE" | tr '[:upper:]' '[:lower:]')
+          docker tag mlops-secop-api:ci "$IMAGE:latest"
+          docker tag mlops-secop-api:ci "$IMAGE:${{ github.sha }}"
+          docker push "$IMAGE:latest"
+          docker push "$IMAGE:${{ github.sha }}"
