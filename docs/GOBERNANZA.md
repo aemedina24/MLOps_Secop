@@ -119,6 +119,47 @@ versionados en DVC — por eso el número oficial es el que quedó
 registrado en MLflow para esta versión específica, no una constante
 universal del pipeline.
 
+### 3.1 — Interpretabilidad del modelo (SHAP)
+
+Un `anomaly_score` alto no dice, por sí solo, *por qué* un contrato se
+marcó como atípico. Para eso se calculan valores SHAP con
+`explain_model()` (`src/mlops_secop/model/tune_isolation_forest.py`),
+usando `TreeExplainer` sobre una muestra pequeña y dirigida — los 20
+contratos más atípicos + 20 normales al azar, **no** las 6.2M filas
+completas: calcular SHAP sobre todo el dataset sería trabajo
+desperdiciado para el objetivo real, que es explicar por qué el modelo
+marca contratos puntuales, no auditar cada fila. El resultado se guarda
+en `models/shap_feature_importance.csv` y queda también como artifact
+del run `final_model_baseline_validado` en MLflow.
+
+![Top 12 variables por importancia media |SHAP|](../reports/shap_feature_importance.png)
+
+| Variable | Importancia media \|SHAP\| |
+|---|---|
+| Valor del contrato (`valor_contrato`) | 0.365 |
+| Valor vs. promedio de su categoría (`valor_vs_promedio_categoria`) | 0.309 |
+| Tipo de documento del proveedor = Cédula de Ciudadanía | 0.300 |
+| Tipo de contrato = Suministro | 0.291 |
+| Concentración del proveedor (`concentracion_proveedor`) | 0.274 |
+| Modalidad de contratación = Régimen Especial | 0.268 |
+
+(top 6 de 130 filas en `models/shap_feature_importance.csv` — el resto
+son en su mayoría variantes one-hot de estas mismas seis columnas
+categóricas.)
+
+**Lectura para gobernanza:** las dos variables numéricas más
+influyentes son precisamente `valor_contrato` y
+`valor_vs_promedio_categoria` — las mismas que la sección 4.1 documenta
+como sesgadas por inflación no corregida. Esto refuerza esa limitación:
+buena parte de lo que el modelo considera "atípico" está impulsado por
+el valor del contrato, así que el sesgo de IPC no es un detalle
+menor — afecta directamente a las variables que más pesan en cada
+predicción. El resto de variables influyentes son categóricas (tipo de
+documento del proveedor, tipo de contrato, modalidad de contratación),
+consistente con el objetivo del modelo: señalar combinaciones atípicas
+de valor + categoría como candidatos a revisión manual, no aplicar una
+fórmula de una sola variable.
+
 ---
 
 ## 4. Limitaciones conocidas
