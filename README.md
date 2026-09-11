@@ -156,6 +156,16 @@ MLOps_Secop/
 > `docker compose up --build`) más abajo. Desplegar automáticamente esa
 > imagen en un servidor o servicio en la nube quedó fuera de alcance: no
 > hay un ambiente real donde correrla para este proyecto académico.
+>
+> **Importante si vas a probar la imagen de GHCR directamente**
+> (`docker pull` + `docker run`, sin clonar el repo ni hacer `dvc pull`):
+> como sus 4 archivos de `models/` están vacíos, `/health` y `/predict`
+> van a devolver un error 500 (el `joblib.load()` interno falla al leer
+> un archivo vacío) — **eso es el comportamiento esperado**, no un bug.
+> Esa imagen solo demuestra que el pipeline de CI/CD publica
+> correctamente; para ver la API respondiendo con predicciones reales,
+> usa la Guía de Inicio Rápido más abajo (clonar + `dvc pull` + `docker
+> compose up --build`), que sí arma la imagen con el modelo entrenado.
 
 ### 📊 Fase 6 — Monitoreo y Gobernanza
 
