@@ -147,6 +147,28 @@ del run `final_model_baseline_validado` en MLflow.
 son en su mayoría variantes one-hot de estas mismas seis columnas
 categóricas.)
 
+**Por qué aparecen variables como "Tipo de documento del proveedor =
+Cédula de Ciudadanía":** Isolation Forest (como casi todo en
+scikit-learn) solo procesa números, así que el modelo nunca ve el
+texto "Cédula de Ciudadanía" directamente. Antes de entrenar,
+`prepare_matrix()` (`src/mlops_secop/model/train_isolation_forest.py`)
+codifica las 6 columnas categóricas con `OneHotEncoder`: cada valor
+posible de una columna (ej. `tipo_documento_proveedor`) se convierte en
+su propia columna binaria (1 si el contrato tiene ese valor, 0 si no).
+El modelo entrena sobre esas columnas 0/1 igual que sobre
+`valor_contrato` o `duracion_dias` — no distingue entre una columna
+"numérica de verdad" y una que en el fondo representa una categoría.
+Por eso, al calcular SHAP, `feature_names` se arma como
+`NUMERIC_COLS + encoder.get_feature_names_out(CATEGORICAL_COLS)`
+(`tune_isolation_forest.py`), que es justo lo que genera nombres como
+`tipo_documento_proveedor_Cédula de Ciudadanía`: la importancia se mide
+por cada columna binaria por separado, no por la variable categórica
+original agrupada. Interpretación práctica de esa fila en particular:
+que **ser (o no ser) una persona natural con cédula, en vez de una
+persona jurídica con NIT**, mueve por sí solo el `anomaly_score` de
+forma notable — consistente con que ciertos tipos/montos de contrato
+son atípicos cuando el proveedor es una persona natural.
+
 **Lectura para gobernanza:** las dos variables numéricas más
 influyentes son precisamente `valor_contrato` y
 `valor_vs_promedio_categoria` — las mismas que la sección 4.1 documenta
