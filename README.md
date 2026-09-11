@@ -193,28 +193,15 @@ producción, con qué datos/código, métricas y limitaciones conocidas) y
 - [ ] Documentación final del proyecto
 
 ---
-## 🎓 ¿Cómo evaluar este proyecto?
+## 🎓 ¿Cómo correr este proyecto?
 
-Este proyecto no tiene sustentación en vivo — se evalúa clonando y
-revisando el repositorio directamente. Hay tres niveles de revisión,
-de menos a más esfuerzo, y solo uno de ellos ejecuta el modelo con
-predicciones reales:
-
-1. **Revisión estática (sin ejecutar nada):** leer este README, la
-   documentación de gobernanza
-   ([`docs/GOBERNANZA.md`](./docs/GOBERNANZA.md) y
-   [`docs/ESTRATEGIA_REENTRENAMIENTO.md`](./docs/ESTRATEGIA_REENTRENAMIENTO.md)),
-   y el historial de Pull Requests + GitHub Actions del repo (CI
-   corriendo en cada PR, branch protection activa en `main`). Alcanza
-   para ver todo el proceso de MLOps sin correr una sola línea de
-   código.
-2. **Correr la API con el modelo real (la única forma de ver
+1. **Correr la API con el modelo real (la única forma de ver
    predicciones reales):** seguir la Guía de Inicio Rápido de abajo —
    clonar, `uv sync`, `dvc pull` (trae el modelo/datos desde Google
    Drive, compartido como "cualquiera con el enlace, Lector") y
    `docker compose up --build`. Con eso, `http://localhost:8000/docs`
    expone `/predict` funcionando con el modelo entrenado.
-3. **Bajar la imagen publicada en GHCR
+2. **Bajar la imagen publicada en GHCR
    (`docker pull ghcr.io/aemedina24/mlops-secop-api:latest`):** prueba
    que el pipeline de CI/CD publica correctamente sin necesitar ningún
    acceso ni configuración — pero **no** sirve predicciones reales (ver
